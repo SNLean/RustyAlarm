@@ -33,10 +33,12 @@ Servicio que vigila una **Smart Alarm de Rust** (el juego) vía la API de Rust+ 
 - [[FastAPI y Uvicorn]] — stack del servicio
 - [[nginx y systemd]] — correr en producción
 - [[Discord Webhooks]] — el canal de aviso
+- [[Skills de diseño y animación]] — herramientas para pulir UI/animación
 
 ## Registro de sesiones
 
 - [[Registro/2026-08-15 — Del script al servicio]]
+- [[Registro/2026-08-15 — Skills de diseño y animación]]
 
 ## Meta
 
