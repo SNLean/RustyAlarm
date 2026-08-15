@@ -25,6 +25,10 @@ El alta de alarma pasó de un formulario denso a un **asistente por pasos, guiad
 - HTTP: el panel renderiza los 7 pasos, 3 guías, botón de prueba; el endpoint valida webhook (inválido/vacío → 400); alta completa por el camino del submit final → 200.
 - Navegador: recorrido Bienvenida → … → Resumen → Crear; validación por paso (nombre vacío bloquea); guía desplegable; tarjeta creada OK; edición sin bienvenida y precargada. Sin errores de consola.
 
+## Fix de alineación
+
+El contenido saltaba entre pasos: horizontal (aparecía/desaparecía la barra de scroll según el largo del paso) y vertical (el diálogo cambiaba de alto). Solución en `.wiz-body`: `scrollbar-gutter: stable` (reserva siempre el hueco del scroll) + `height: clamp(300px, 54vh, 460px)` (alto fijo). Verificado: borde izquierdo idéntico (387px) y alto del cuerpo constante (389px) entre un paso sin scroll y uno con scroll.
+
 ## Nota
 
 Durante las pruebas quedó un login real de Steam en la base (`76561198383652437`); es cuenta legítima, no se borró.

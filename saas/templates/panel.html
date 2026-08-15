@@ -50,7 +50,7 @@
     border-radius: 14px; padding: 0; max-width: 560px; width: 94vw;
   }
   dialog::backdrop { background: rgba(0,0,0,.72); }
-  .wiz { display: flex; flex-direction: column; max-height: 88vh; }
+  .wiz { display: flex; flex-direction: column; }
   .wiz-top { padding: 20px 26px 0; }
   .wiz-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .dots { display: flex; gap: 6px; }
@@ -62,7 +62,14 @@
   .dots i.active { background: var(--accent); }
   .wiz-step-label { color: var(--muted); font-size: 12px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .5px; }
-  .wiz-body { padding: 8px 26px 8px; overflow-y: auto; }
+  /* Altura fija del cuerpo + gutter reservado: el contenido no salta entre
+     pasos (ni horizontal por el scrollbar, ni vertical por el alto variable). */
+  .wiz-body {
+    padding: 8px 26px;
+    height: clamp(300px, 54vh, 460px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
   .wiz-foot {
     display: flex; align-items: center; gap: 10px; padding: 16px 26px 22px;
     border-top: 1px solid var(--line); margin-top: 8px;
