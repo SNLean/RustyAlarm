@@ -96,7 +96,11 @@
   .field .err { color: var(--accent-soft); font-size: 12px; margin-top: 4px; display: none; }
   .field.invalid .err { display: block; }
   .field .desc { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: stretch; }
+  /* Cada campo de una fila de 2 columnas: el input se pega al fondo, así los
+     dos inputs alinean aunque una columna tenga más texto de ayuda que la otra. */
+  .frow .field { display: flex; flex-direction: column; }
+  .frow .field input { margin-top: auto; }
 
   .guide {
     margin: 4px 0 6px; border: 1px dashed var(--line); border-radius: 8px;
@@ -233,6 +237,7 @@
         <div class="frow">
           <div class="field" data-f="ip">
             <label>IP del servidor</label>
+            <div class="desc">La que llega en la notificación</div>
             <input name="ip" placeholder="200.40.131.36" spellcheck="false" autocomplete="off">
             <div class="err"></div>
           </div>

@@ -29,6 +29,8 @@ El alta de alarma pasó de un formulario denso a un **asistente por pasos, guiad
 
 El contenido saltaba entre pasos: horizontal (aparecía/desaparecía la barra de scroll según el largo del paso) y vertical (el diálogo cambiaba de alto). Solución en `.wiz-body`: `scrollbar-gutter: stable` (reserva siempre el hueco del scroll) + `height: clamp(300px, 54vh, 460px)` (alto fijo). Verificado: borde izquierdo idéntico (387px) y alto del cuerpo constante (389px) entre un paso sin scroll y uno con scroll.
 
+Segundo desfase: en la fila IP / Puerto, IP no tenía línea de ayuda y Puerto sí, así que el input del puerto quedaba más abajo. Solución: `.frow .field` como flex column con `input { margin-top: auto }` (los inputs se pegan al fondo y alinean aunque una columna tenga más ayuda) + se le sumó una ayuda de una línea a IP. Verificado: ambos inputs con top y bottom idénticos (324 / 369).
+
 ## Nota
 
 Durante las pruebas quedó un login real de Steam en la base (`76561198383652437`); es cuenta legítima, no se borró.
