@@ -1,0 +1,35 @@
+# systemd unit para RustyAlarm.
+# Copiar a /etc/systemd/system/rustyalarm.service y ajustar rutas/usuario.
+#
+#   sudo cp deploy/rustyalarm.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rustyalarm
+#
+# Un solo proceso a proposito (ver saas/__main__.py): NO usar --workers.
+
+[Unit]
+Description=RustyAlarm - servicio de alarmas Rust+
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rustyalarm
+Group=rustyalarm
+# Codigo en /opt/rustyalarm/app, venv en /opt/rustyalarm/.venv (afuera del
+# repo, asi git pull no lo pisa). saas_data/ se crea dentro de app/.
+WorkingDirectory=/opt/rustyalarm/app
+EnvironmentFile=/opt/rustyalarm/app/.env
+ExecStart=/opt/rustyalarm/.venv/bin/python -m saas
+Restart=always
+RestartSec=5
+
+# Endurecimiento basico. saas_data/ queda escribible (ReadWritePaths).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/rustyalarm/app/saas_data
+
+[Install]
+WantedBy=multi-user.target
