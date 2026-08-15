@@ -27,6 +27,12 @@ env/
 Thumbs.db
 Desktop.ini
 
+# ==== OBSIDIAN (vault en docs/) ====
+# Las notas .md se versionan; el estado por-usuario no.
+docs/.obsidian/workspace*.json
+docs/.obsidian/cache
+docs/.obsidian/workspace
+
 # ==== BASURA DEL REPO ====
 # archivo vacio de 0 bytes, no es script ni lockfile
 pip
