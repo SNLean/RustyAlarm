@@ -27,11 +27,12 @@ env/
 Thumbs.db
 Desktop.ini
 
-# ==== OBSIDIAN (vault en docs/) ====
-# Las notas .md se versionan; el estado por-usuario no.
-docs/.obsidian/workspace*.json
-docs/.obsidian/cache
-docs/.obsidian/workspace
+# ==== OBSIDIAN ====
+# Las notas .md y la config compartida (app/appearance/core-plugins/graph) se
+# versionan; el layout por-usuario no, este donde este el .obsidian/.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
 
 # ==== BASURA DEL REPO ====
 # archivo vacio de 0 bytes, no es script ni lockfile
