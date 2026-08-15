@@ -167,6 +167,10 @@ _WEBHOOK_PREFIXES = (
 )
 
 
+def is_discord_webhook(url: str) -> bool:
+    return bool(url) and url.startswith(_WEBHOOK_PREFIXES)
+
+
 def validate_alarm(data: dict) -> dict:
     """Normaliza el payload del formulario. Todos los errores juntos."""
     errors = {}

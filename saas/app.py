@@ -291,6 +291,29 @@ async def test_webhook(alarm_id: int, request: Request):
     return {"ok": True}
 
 
+@app.post("/api/webhook/test")
+async def test_webhook_url(request: Request):
+    """Prueba un webhook suelto (URL en el body) antes de que exista la alarma.
+    Lo usa el asistente de alta para validar el webhook en el paso de Discord."""
+    user = current_user(request)
+    if user is None:
+        return need_login()
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    data = await read_json(request)
+    webhook = str(data.get("webhook", "")).strip()
+    if not db.is_discord_webhook(webhook):
+        return JSONResponse({"error": "URL de webhook de Discord invalida"},
+                            status_code=400)
+    name = str(data.get("name") or "").strip() or "tu alarma"
+    server = str(data.get("server") or "").strip() or "—"
+    try:
+        await send_discord(webhook, alarm_name=name, server=server, test=True)
+    except Exception as exc:
+        return JSONResponse({"error": f"Discord rechazo: {exc}"}, status_code=400)
+    return {"ok": True}
+
+
 # ================= API ADMIN =================
 
 @app.get("/api/admin/users")

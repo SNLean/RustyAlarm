@@ -24,7 +24,7 @@ Webapp multiusuario. Un proceso [[FastAPI y Uvicorn|uvicorn]], un solo event loo
 ## Flujo del usuario
 
 1. Landing (`/`) → botón **Entrar con Steam** → [[Steam OpenID]].
-2. Panel (`/panel`): CRUD de alarmas, estado en vivo (polling cada 2 s a `/api/alarms`), botón "Probar Discord".
+2. Panel (`/panel`): CRUD de alarmas, estado en vivo (polling cada 2 s a `/api/alarms`), botón "Probar Discord". El alta usa un **asistente guiado por pasos** (onboarding + guías in-app); ver [[Registro/2026-08-15 — Asistente de alta guiado]].
 3. Admin (`/admin`, solo el dueño): pausar/activar cuentas. Ver [[Decisiones de producto]] sobre por qué es manual.
 
 ## El monitor
