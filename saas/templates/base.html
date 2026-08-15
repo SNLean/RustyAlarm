@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Alarma Rust+{% endblock %}</title>
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1e1a17;
+    --panel-2: #262119;
+    --line: #3a322a;
+    --text: #ece5dc;
+    --muted: #9a8d7e;
+    --accent: #ce422b;
+    --accent-soft: #f0714f;
+    --ok: #6fbf73;
+    --warn: #e0a33e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 28px; border-bottom: 1px solid var(--line);
+    background: var(--panel); position: sticky; top: 0; z-index: 2;
+  }
+  header h1 { font-size: 17px; margin: 0; }
+  header h1 a { color: var(--text); text-decoration: none; }
+  .spacer { flex: 1; }
+  .muted { color: var(--muted); }
+  button, .btn {
+    padding: 9px 16px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font: inherit;
+    font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+  }
+  button:hover:not(:disabled), .btn:hover { border-color: var(--accent-soft); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .primary { background: var(--accent); border-color: var(--accent); }
+  .ghost { background: transparent; }
+  .danger { color: var(--accent-soft); }
+  #toast {
+    position: fixed; right: 22px; bottom: 22px; max-width: 380px;
+    padding: 12px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel-2); font-size: 14px; display: none; z-index: 50;
+  }
+  #toast.error { border-color: var(--accent); color: var(--accent-soft); }
+  #toast.ok { border-color: var(--ok); }
+  {% block style %}{% endblock %}
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+<div id="toast"></div>
+<script>
+function toast(message, kind) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.className = kind || "";
+  el.style.display = "block";
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = "none"; }, 4000);
+}
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.fields = data.errors || {};
+    throw err;
+  }
+  return data;
+}
+function send(path, method, body) {
+  return api(path, {
+    method,
+    headers: {"Content-Type": "application/json"},
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+</script>
+{% block script %}{% endblock %}
+</body>
+</html>

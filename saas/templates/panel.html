@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Mis alarmas — Alarma Rust+{% endblock %}
+
+{% block style %}
+  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  .topline { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .topline h2 { margin: 0; font-size: 22px; }
+  .banner {
+    background: var(--panel-2); border: 1px solid var(--warn); border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 18px; font-size: 14px; display: none;
+  }
+  .cards { display: grid; gap: 16px; }
+  .alarm {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .alarm .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .alarm h3 { margin: 0; font-size: 17px; }
+  .alarm .server { color: var(--muted); font-size: 13px; font-family: Consolas, monospace; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px;
+    border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line);
+    font-size: 12px; font-weight: 600;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.running .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .pill.starting .dot, .pill.retrying .dot { background: var(--warn); }
+  .pill.error .dot { background: var(--accent); }
+  .pill.alarm-on { border-color: var(--accent); color: var(--accent-soft); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .alarm .meta { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+  .alarm .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .alarm .row-actions button { padding: 6px 12px; font-size: 13px; }
+  .minilog {
+    margin-top: 12px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px; font: 12px Consolas, monospace;
+    max-height: 130px; overflow-y: auto; display: none;
+  }
+  .minilog .warn { color: var(--warn); }
+  .minilog .error, .minilog .alarm { color: var(--accent-soft); }
+  .minilog .ok { color: var(--ok); }
+  .empty {
+    text-align: center; color: var(--muted); padding: 60px 20px;
+    border: 1px dashed var(--line); border-radius: 10px;
+  }
+
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 26px 30px; max-width: 520px; width: 92vw;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.72); }
+  dialog h3 { margin: 0 0 16px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .field input {
+    width: 100%; padding: 8px 11px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit;
+  }
+  .field input:focus { outline: none; border-color: var(--accent-soft); }
+  .field.invalid input { border-color: var(--accent); }
+  .field .err { color: var(--accent-soft); font-size: 12px; margin-top: 4px; display: none; }
+  .field.invalid .err { display: block; }
+  .field .desc { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dlg-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .helplink { color: var(--accent-soft); font-size: 13px; }
+{% endblock %}
+
+{% block body %}
+<header>
+  <h1><a href="/panel">Alarma Rust+</a></h1>
+  <span class="muted">{{ user.steam_id }}</span>
+  <span class="spacer"></span>
+  {% if admin %}<a class="btn ghost" href="/admin">Admin</a>{% endif %}
+  <form method="post" action="/logout" style="margin:0">
+    <button class="ghost" type="submit">Salir</button>
+  </form>
+</header>
+
+<main>
+  <div class="banner" id="planBanner">
+    Tu cuenta esta <b>pausada</b>. Tus alarmas no se monitorean. Contacta al administrador.
+  </div>
+
+  <div class="topline">
+    <h2>Mis alarmas</h2>
+    <span class="muted" id="quota"></span>
+    <span class="spacer"></span>
+    <button class="primary" id="btnNew">Agregar alarma</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" style="display:none">
+    Todavia no tenes alarmas.<br><br>
+    <button class="primary" onclick="openEditor()">Configurar mi primera alarma</button>
+  </div>
+</main>
+
+<dialog id="editor">
+  <h3 id="dlgTitle">Nueva alarma</h3>
+  <form id="alarmForm" method="dialog">
+    <div class="field" data-f="name">
+      <label>Nombre</label>
+      <input name="name" placeholder="Base principal" maxlength="60">
+      <div class="err"></div>
+    </div>
+    <div class="frow">
+      <div class="field" data-f="ip">
+        <label>IP del servidor</label>
+        <input name="ip" spellcheck="false">
+        <div class="err"></div>
+      </div>
+      <div class="field" data-f="port">
+        <label>Puerto Rust+</label>
+        <div class="desc">No es el puerto de juego</div>
+        <input name="port" inputmode="numeric">
+        <div class="err"></div>
+      </div>
+    </div>
+    <div class="field" data-f="player_token">
+      <label>Player token</label>
+      <div class="desc">Del pareo con el servidor; puede ser negativo</div>
+      <input name="player_token" inputmode="numeric" spellcheck="false">
+      <div class="err"></div>
+    </div>
+    <div class="field" data-f="entity_id">
+      <label>Entity ID de la alarma</label>
+      <div class="desc">Cambia con cada wipe</div>
+      <input name="entity_id" inputmode="numeric" spellcheck="false">
+      <div class="err"></div>
+    </div>
+    <div class="field" data-f="discord_webhook">
+      <label>Webhook de Discord</label>
+      <div class="desc">Canal de Discord &rarr; Editar canal &rarr; Integraciones &rarr; Webhooks &rarr; Nuevo webhook &rarr; Copiar URL</div>
+      <input name="discord_webhook" placeholder="https://discord.com/api/webhooks/..." spellcheck="false">
+      <div class="err"></div>
+    </div>
+    <div class="frow">
+      <div class="field" data-f="check_interval">
+        <label>Intervalo (seg)</label>
+        <input name="check_interval" value="3" inputmode="decimal">
+        <div class="err"></div>
+      </div>
+      <div class="field" data-f="cooldown">
+        <label>Cooldown (seg)</label>
+        <input name="cooldown" value="30" inputmode="decimal">
+        <div class="err"></div>
+      </div>
+    </div>
+    <p><a class="helplink" href="https://rplus.ollieee.xyz/getting-started/getting-player-details" target="_blank" rel="noopener">Como consigo estos datos &rarr;</a></p>
+    <div class="dlg-actions">
+      <button type="button" class="ghost" id="btnCancel">Cancelar</button>
+      <button type="submit" class="primary" id="btnSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block script %}
+<script>
+const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown"];
+const STATUS_LABEL = {
+  running: "Conectada", starting: "Conectando...", retrying: "Reintentando",
+  error: "Error", stopped: "Pausada",
+};
+let editingId = null;
+const openLogs = new Set();
+let alarmsById = {};
+
+const $ = id => document.getElementById(id);
+const form = $("alarmForm");
+
+const ESC = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+function esc(v) { return String(v ?? "").replace(/[&<>"']/g, c => ESC[c]); }
+
+function timeOf(s) {
+  return s ? new Date(s * 1000).toLocaleTimeString("es", {hour12: false}) : "—";
+}
+
+function clearErrors() {
+  form.querySelectorAll(".field").forEach(f => f.classList.remove("invalid"));
+}
+function showErrors(fields) {
+  clearErrors();
+  Object.entries(fields).forEach(([name, message]) => {
+    const wrap = form.querySelector(`[data-f="${name}"]`);
+    if (!wrap) { toast(message, "error"); return; }
+    wrap.classList.add("invalid");
+    wrap.querySelector(".err").textContent = message;
+  });
+}
+
+function openEditor(alarm) {
+  editingId = alarm ? alarm.id : null;
+  $("dlgTitle").textContent = alarm ? "Editar alarma" : "Nueva alarma";
+  clearErrors();
+  FIELDS.forEach(name => {
+    form.elements[name].value = alarm ? (alarm[name] ?? "") : "";
+  });
+  if (!alarm) { form.elements.check_interval.value = "3"; form.elements.cooldown.value = "30"; }
+  $("editor").showModal();
+}
+// Editar por id desde la tabla en memoria: los datos (token, webhook) nunca
+// se serializan dentro del HTML, asi no quedan expuestos en el DOM.
+function openEditorById(id) { openEditor(alarmsById[id]); }
+
+function cardHtml(a) {
+  const st = a.state || {};
+  const status = esc(st.status);
+  const pill = `<span class="pill ${status}"><span class="dot"></span>${esc(STATUS_LABEL[st.status] || st.status)}</span>`;
+  const firePill = st.alarm_on ? `<span class="pill alarm-on"><span class="dot"></span>SONANDO</span>` : "";
+  const logLines = (st.logs || []).slice(-30).map(l =>
+    `<div class="${esc(l.level)}">[${timeOf(l.ts)}] ${esc(l.message)}</div>`
+  ).join("");
+  const webhookNote = a.discord_webhook ? "" :
+    ` &middot; <span style="color:var(--warn)">sin webhook: no avisa</span>`;
+  return `
+  <div class="alarm" data-id="${a.id}">
+    <div class="head">
+      <h3>${esc(a.name)}</h3>
+      <span class="server">${esc(a.ip)}:${esc(a.port)}</span>
+      ${pill} ${firePill}
+      <span class="spacer"></span>
+    </div>
+    <div class="meta">
+      ${esc(st.detail || "")} &middot; Avisos: ${st.trigger_count || 0}
+      &middot; Ultimo chequeo: ${timeOf(st.last_check)}${webhookNote}
+    </div>
+    <div class="row-actions">
+      <button onclick="openEditorById(${a.id})">Editar</button>
+      <button onclick="toggleAlarm(${a.id})">${a.enabled ? "Pausar" : "Activar"}</button>
+      <button onclick="testWebhook(${a.id})" ${a.discord_webhook ? "" : "disabled"}>Probar Discord</button>
+      <button onclick="toggleLog(${a.id})">Log</button>
+      <button class="danger ghost" onclick="removeAlarm(${a.id})">Borrar</button>
+    </div>
+    <div class="minilog" id="log-${a.id}" ${openLogs.has(a.id) ? 'style="display:block"' : ""}>${logLines || "<span class='muted'>Sin actividad.</span>"}</div>
+  </div>`;
+}
+
+function render(data) {
+  alarmsById = {};
+  data.alarms.forEach(a => { alarmsById[a.id] = a; });
+  $("planBanner").style.display = data.plan_active ? "none" : "block";
+  $("quota").textContent = `${data.alarms.length}/${data.max_alarms}`;
+  $("btnNew").disabled = data.alarms.length >= data.max_alarms;
+  $("empty").style.display = data.alarms.length ? "none" : "block";
+  const cards = $("cards");
+  const scrolls = {};
+  cards.querySelectorAll(".minilog").forEach(el => { scrolls[el.id] = el.scrollTop; });
+  cards.innerHTML = data.alarms.map(cardHtml).join("");
+  openLogs.forEach(id => {
+    const el = $("log-" + id);
+    if (el) { el.style.display = "block"; el.scrollTop = scrolls["log-" + id] ?? el.scrollHeight; }
+  });
+}
+
+async function refresh() {
+  try { render(await api("/api/alarms")); }
+  catch (err) { if (err.message.includes("401")) location.href = "/"; }
+}
+
+function toggleLog(id) {
+  if (openLogs.has(id)) openLogs.delete(id); else openLogs.add(id);
+  const el = $("log-" + id);
+  if (el) el.style.display = openLogs.has(id) ? "block" : "none";
+}
+
+async function toggleAlarm(id) {
+  try { await send(`/api/alarms/${id}/toggle`, "POST", {}); refresh(); }
+  catch (err) { toast(err.message, "error"); }
+}
+
+async function removeAlarm(id) {
+  if (!confirm("Borrar esta alarma? No se puede deshacer.")) return;
+  try { await send(`/api/alarms/${id}`, "DELETE"); refresh(); }
+  catch (err) { toast(err.message, "error"); }
+}
+
+async function testWebhook(id) {
+  try { await send(`/api/alarms/${id}/test-webhook`, "POST", {}); toast("Mensaje de prueba enviado. Mira tu Discord.", "ok"); }
+  catch (err) { toast(err.message, "error"); }
+}
+
+$("btnNew").addEventListener("click", () => openEditor());
+$("btnCancel").addEventListener("click", () => $("editor").close());
+
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const body = {};
+  FIELDS.forEach(name => { body[name] = form.elements[name].value.trim(); });
+  try {
+    if (editingId === null) await send("/api/alarms", "POST", body);
+    else await send(`/api/alarms/${editingId}`, "PUT", body);
+    $("editor").close();
+    toast("Guardado", "ok");
+    refresh();
+  } catch (err) {
+    if (Object.keys(err.fields || {}).length) showErrors(err.fields);
+    else toast(err.message, "error");
+  }
+});
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+# ==== SECRETOS Y DATOS EN VIVO — NUNCA COMMITEAR ====
+# config.json del desktop tiene STEAM_ID y PLAYER_TOKEN reales.
+config.json
+# Base del servicio: usuarios, sesiones, alarmas de clientes.
+saas_data/
+# Variables de entorno del deploy.
+.env
+*.env
+
+# ==== BUILD / ARTEFACTOS GENERADOS ====
+build/
+dist/
+*.spec.bak
+
+# ==== PYTHON ====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ==== EDITOR / SO ====
+.history/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+
+# ==== BASURA DEL REPO ====
+# archivo vacio de 0 bytes, no es script ni lockfile
+pip

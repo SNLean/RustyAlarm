@@ -1,0 +1,3 @@
+# Normalizar a LF: el deploy corre en Linux. Evita el ruido CRLF/LF en Windows.
+* text=auto eol=lf
+*.wav binary

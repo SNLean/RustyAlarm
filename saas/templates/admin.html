@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Admin — Alarma Rust+{% endblock %}
+
+{% block style %}
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
+          border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: left; font-size: 14px;
+           border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+  td.mono { font-family: Consolas, monospace; font-size: 13px; }
+  .state-on { color: var(--ok); font-weight: 600; }
+  .state-off { color: var(--accent-soft); font-weight: 600; }
+{% endblock %}
+
+{% block body %}
+<header>
+  <h1><a href="/panel">Alarma Rust+</a></h1>
+  <span class="muted">admin</span>
+  <span class="spacer"></span>
+  <a class="btn ghost" href="/panel">Mi panel</a>
+</header>
+
+<main>
+  <h2>Usuarios</h2>
+  <p class="muted">
+    Pausar una cuenta detiene el monitoreo de todas sus alarmas. Usalo para dar de
+    baja a quien no pago; cuando integres pagos, esto lo maneja el proveedor solo.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Steam ID</th><th>Alta</th><th>Alarmas</th><th>Plan</th><th>Estado</th><th></th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+{% endblock %}
+
+{% block script %}
+<script>
+function dateOf(s) { return new Date(s * 1000).toLocaleDateString("es"); }
+
+async function refresh() {
+  try {
+    const data = await api("/api/admin/users");
+    document.getElementById("rows").innerHTML = data.users.map(u => `
+      <tr>
+        <td class="mono">${u.steam_id}</td>
+        <td>${dateOf(u.created_at)}</td>
+        <td>${u.alarm_count}</td>
+        <td>${u.plan}</td>
+        <td class="${u.plan_active ? "state-on" : "state-off"}">${u.plan_active ? "Activo" : "Pausado"}</td>
+        <td><button onclick="toggleUser('${u.steam_id}')">${u.plan_active ? "Pausar" : "Activar"}</button></td>
+      </tr>`).join("");
+  } catch (err) { toast(err.message, "error"); }
+}
+
+async function toggleUser(steamId) {
+  try { await send(`/api/admin/users/${steamId}/toggle`, "POST", {}); refresh(); }
+  catch (err) { toast(err.message, "error"); }
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+{% endblock %}

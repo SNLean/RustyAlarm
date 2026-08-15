@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alarma Rust+ — Panel</title>
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1e1a17;
+    --panel-2: #262119;
+    --line: #3a322a;
+    --text: #ece5dc;
+    --muted: #9a8d7e;
+    --accent: #ce422b;
+    --accent-soft: #f0714f;
+    --ok: #6fbf73;
+    --warn: #e0a33e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .3px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    font-size: 13px; font-weight: 600;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .badge.running .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .badge.starting .dot { background: var(--warn); }
+  .badge.error .dot { background: var(--accent); }
+  .badge.alarm { border-color: var(--accent); color: var(--accent-soft); animation: pulse 1s infinite; }
+  .badge.alarm .dot { background: var(--accent); }
+  @keyframes pulse { 50% { opacity: .45; } }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(340px, 460px) 1fr;
+    gap: 22px;
+    padding: 22px 28px 40px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card h2 {
+    margin: 0 0 4px; font-size: 14px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted);
+  }
+  .card > p.hint { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+  .field .desc { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 9px 11px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    font: inherit; font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent-soft); }
+  .field.invalid input { border-color: var(--accent); }
+  .field .err { color: var(--accent-soft); font-size: 12px; margin-top: 5px; display: none; }
+  .field.invalid .err { display: block; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  button {
+    padding: 9px 16px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font: inherit;
+    font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent-soft); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  button.ghost { background: transparent; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .stat .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+  .stat .v { font-size: 19px; font-weight: 600; margin-top: 3px; }
+
+  #log {
+    height: 46vh; min-height: 260px; overflow-y: auto;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px;
+  }
+  #log .line { display: flex; gap: 10px; padding: 2px 0; }
+  #log .t { color: var(--muted); flex: none; }
+  #log .m { white-space: pre-wrap; word-break: break-word; }
+  #log .info .m { color: var(--text); }
+  #log .ok .m { color: var(--ok); }
+  #log .warn .m { color: var(--warn); }
+  #log .error .m { color: var(--accent-soft); }
+  #log .alarm .m { color: var(--accent-soft); font-weight: 700; }
+  #log .empty { color: var(--muted); }
+
+  .helpbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+  button.help {
+    background: transparent; border-style: dashed; color: var(--accent-soft);
+    font-size: 13px; padding: 8px 13px;
+  }
+  button.help:hover { background: var(--panel-2); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.72);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 20px; overflow-y: auto; z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    max-width: 720px; width: 100%; padding: 26px 30px 30px;
+  }
+  .modal h3 { margin: 0 0 6px; font-size: 20px; }
+  .modal .lead { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .modal h4 {
+    margin: 22px 0 8px; font-size: 12px; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .modal ol { margin: 0; padding-left: 22px; }
+  .modal ol > li { margin-bottom: 16px; }
+  .modal ul { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
+  .modal p { margin: 6px 0; }
+  .modal code {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 6px; font-family: Consolas, monospace; font-size: 13px;
+    color: var(--accent-soft);
+  }
+  .cmd {
+    display: flex; align-items: center; gap: 10px; margin: 8px 0;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 9px 11px;
+  }
+  .cmd code { background: none; border: none; padding: 0; flex: 1; color: var(--text); word-break: break-all; }
+  .cmd button { padding: 5px 11px; font-size: 12px; flex: none; }
+  .note {
+    margin-top: 20px; padding: 12px 14px; border-radius: 8px;
+    background: var(--panel-2); border-left: 3px solid var(--warn); font-size: 13px;
+  }
+  .note b { color: var(--warn); }
+  .modal .close { margin-top: 24px; }
+  .modal a { color: var(--accent-soft); }
+  details.alt {
+    margin-top: 20px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 14px; background: var(--panel-2);
+  }
+  details.alt summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+  details.alt[open] summary { margin-bottom: 10px; }
+
+  #toast {
+    position: fixed; right: 22px; bottom: 22px; max-width: 380px;
+    padding: 12px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel-2); font-size: 14px; display: none; z-index: 5;
+  }
+  #toast.error { border-color: var(--accent); color: var(--accent-soft); }
+  #toast.ok { border-color: var(--ok); }
+  .paths { margin-top: 14px; color: var(--muted); font-size: 12px; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Alarma Rust+</h1>
+  <span class="sub">panel local de configuracion</span>
+  <span class="spacer"></span>
+  <span class="badge" id="alarmBadge" style="display:none">
+    <span class="dot"></span> Alarma activa
+  </span>
+  <span class="badge" id="statusBadge"><span class="dot"></span> <span id="statusText">Detenido</span></span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Parametros</h2>
+    <p class="hint">Se guardan en config.json. Los datos de pareo salen de Rust+ (companion app).</p>
+
+    <div class="helpbar">
+      <button type="button" class="help" data-modal="modalServer">
+        ? Como consigo IP, puerto, Steam ID y token
+      </button>
+      <button type="button" class="help" data-modal="modalEntity">
+        ? Como consigo el Entity ID de la alarma
+      </button>
+    </div>
+
+    <form id="form" autocomplete="off">
+      <div class="row">
+        <div class="field" data-field="IP">
+          <label for="IP">IP del servidor</label>
+          <input id="IP" name="IP" type="text" placeholder="200.40.131.36" spellcheck="false">
+          <div class="err"></div>
+        </div>
+        <div class="field" data-field="PORT">
+          <label for="PORT">Puerto Rust+</label>
+          <div class="desc">No es el puerto de juego</div>
+          <input id="PORT" name="PORT" type="text" inputmode="numeric" placeholder="28082">
+          <div class="err"></div>
+        </div>
+      </div>
+
+      <div class="field" data-field="STEAM_ID">
+        <label for="STEAM_ID">Steam ID</label>
+        <div class="desc">Tu SteamID64, 17 digitos</div>
+        <input id="STEAM_ID" name="STEAM_ID" type="text" inputmode="numeric" spellcheck="false">
+        <div class="err"></div>
+      </div>
+
+      <div class="field" data-field="PLAYER_TOKEN">
+        <label for="PLAYER_TOKEN">Player token</label>
+        <div class="desc">Entero del pareo, puede ser negativo</div>
+        <input id="PLAYER_TOKEN" name="PLAYER_TOKEN" type="text" inputmode="numeric" spellcheck="false">
+        <div class="err"></div>
+      </div>
+
+      <div class="field" data-field="ALARM_ENTITY_ID">
+        <label for="ALARM_ENTITY_ID">Entity ID de la alarma</label>
+        <div class="desc">ID de la Smart Alarm pareada</div>
+        <input id="ALARM_ENTITY_ID" name="ALARM_ENTITY_ID" type="text" inputmode="numeric" spellcheck="false">
+        <div class="err"></div>
+      </div>
+
+      <div class="row">
+        <div class="field" data-field="CHECK_INTERVAL">
+          <label for="CHECK_INTERVAL">Intervalo (seg)</label>
+          <div class="desc">Cada cuanto consulta</div>
+          <input id="CHECK_INTERVAL" name="CHECK_INTERVAL" type="text" inputmode="decimal">
+          <div class="err"></div>
+        </div>
+        <div class="field" data-field="COOLDOWN">
+          <label for="COOLDOWN">Cooldown (seg)</label>
+          <div class="desc">Espera minima entre sonidos</div>
+          <input id="COOLDOWN" name="COOLDOWN" type="text" inputmode="decimal">
+          <div class="err"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="btnSave">Guardar</button>
+        <button type="button" id="btnStart" class="primary">Iniciar monitor</button>
+        <button type="button" id="btnStop" class="ghost" disabled>Detener</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnTest" class="ghost">Probar sonido</button>
+        <button type="button" id="btnMute" class="ghost">Silenciar</button>
+      </div>
+
+      <div class="paths">
+        <div id="pathConfig"></div>
+        <div id="pathSound"></div>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Estado</h2>
+    <p class="hint" id="detail">&nbsp;</p>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Activaciones</div><div class="v" id="statTriggers">0</div></div>
+      <div class="stat"><div class="k">Ultimo chequeo</div><div class="v" id="statCheck">—</div></div>
+      <div class="stat"><div class="k">Ultima alarma</div><div class="v" id="statTrigger">—</div></div>
+    </div>
+
+    <div id="log"><div class="empty">Sin actividad todavia.</div></div>
+  </section>
+</main>
+
+<div class="overlay" id="modalServer">
+  <div class="modal">
+    <h3>Conseguir IP, puerto, Steam ID y player token</h3>
+    <p class="lead">
+      Estos cuatro datos salen de "parear el servidor" desde el juego. La forma mas
+      facil es con una extension de Chrome que muestra la notificacion de pareo:
+      no hace falta instalar nada mas ni usar la terminal.
+    </p>
+
+    <h4>Antes de empezar</h4>
+    <ul>
+      <li>Usar Google Chrome (o un navegador compatible con sus extensiones).</li>
+      <li>Estar conectado al servidor de Rust del que queres los datos.</li>
+    </ul>
+
+    <h4>Pasos</h4>
+    <ol>
+      <li>
+        <b>Instalar la extension.</b> Agrega
+        <a href="https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf" target="_blank" rel="noopener">RustPlus.py Link Companion</a>
+        desde la Chrome Web Store (es la que recomienda la documentacion oficial de la
+        libreria que usa esta app).
+      </li>
+      <li>
+        <b>Iniciar sesion.</b> Hace click en el icono de la extension: te lleva a la
+        pagina de Facepunch. Inicia sesion con tu cuenta de Steam. Al terminar te
+        redirige a una pagina con tus credenciales.
+      </li>
+      <li>
+        <b>Dejar la pagina escuchando.</b> En esa misma pagina usa la opcion de
+        escuchar notificaciones ("listen for notifications") y dejala abierta.
+      </li>
+      <li>
+        <b>Parear desde el juego.</b> Volve a Rust, abri el menu con <code>Esc</code>,
+        entra a <b>Rust+</b> y elegi <b>Pair with Server</b>.
+      </li>
+      <li>
+        <b>Leer los datos.</b> En la pagina aparece la notificacion con un bloque de
+        texto. Te interesan cuatro campos:
+        <ul>
+          <li><code>ip</code> va al campo <b>IP del servidor</b></li>
+          <li><code>port</code> va al campo <b>Puerto Rust+</b></li>
+          <li><code>playerId</code> va al campo <b>Steam ID</b></li>
+          <li><code>playerToken</code> va al campo <b>Player token</b> (puede ser negativo, copialo con el signo menos)</li>
+        </ul>
+      </li>
+      <li>
+        <b>Pegar y guardar.</b> Completa los campos en este panel y apreta <b>Guardar</b>.
+        Todavia falta el Entity ID de la alarma: mira el otro boton de ayuda.
+      </li>
+    </ol>
+
+    <details class="alt">
+      <summary>Alternativa por terminal (si la extension no te funciona)</summary>
+      <p>Necesitas Node.js instalado. En PowerShell, registrate una sola vez:</p>
+      <div class="cmd">
+        <code>npx @liamcottle/rustplus.js fcm-register</code>
+        <button type="button" class="copy">Copiar</button>
+      </div>
+      <p>Se abre un Chrome para loguearte con Steam. Despues pone la terminal a escuchar:</p>
+      <div class="cmd">
+        <code>npx @liamcottle/rustplus.js fcm-listen</code>
+        <button type="button" class="copy">Copiar</button>
+      </div>
+      <p>
+        Dejala abierta y hace el pareo en el juego igual que arriba: la notificacion
+        con los mismos campos aparece en la terminal.
+      </p>
+    </details>
+
+    <div class="note">
+      <b>Ojo:</b> el <b>Puerto Rust+</b> no es el mismo que el puerto con el que te conectas
+      a jugar. Usa siempre el <code>port</code> que llego en la notificacion.
+      El <b>player token</b> es distinto en cada servidor, y si volves a generar
+      credenciales las anteriores dejan de servir: siempre usa la ultima notificacion.
+    </div>
+
+    <button type="button" class="close">Cerrar</button>
+  </div>
+</div>
+
+<div class="overlay" id="modalEntity">
+  <div class="modal">
+    <h3>Conseguir el Entity ID de la alarma</h3>
+    <p class="lead">
+      El Entity ID identifica esa Smart Alarm en particular. Se consigue pareando el
+      dispositivo, igual que el servidor pero apuntando a la alarma.
+    </p>
+
+    <h4>Antes de empezar</h4>
+    <ul>
+      <li>La Smart Alarm tiene que estar colocada y con corriente conectada.</li>
+      <li>Tenes que estar autorizado en el Tool Cupboard de esa base.</li>
+      <li>Ya tenes que haber hecho el login del otro instructivo (extension o terminal).</li>
+    </ul>
+
+    <h4>Pasos</h4>
+    <ol>
+      <li>
+        <b>Dejar el listener escuchando.</b> Abri la pagina de la extension
+        <b>RustPlus.py Link Companion</b> con "listen for notifications" activo
+        (o, si usaste la terminal, corre de nuevo
+        <code>npx @liamcottle/rustplus.js fcm-listen</code>).
+      </li>
+      <li>
+        <b>Parear la alarma.</b> En el juego, para justo enfrente de la Smart Alarm y
+        mirala. Aparece la opcion <b>Pair</b> sobre el dispositivo: activala.
+      </li>
+      <li>
+        <b>Leer el dato.</b> Llega una notificacion nueva con el campo
+        <code>entityId</code>. Ese numero va al campo <b>Entity ID de la alarma</b>.
+      </li>
+      <li>
+        <b>Guardar y probar.</b> Apreta <b>Guardar</b> y despues <b>Iniciar monitor</b>.
+        Si todo esta bien, el log muestra "Conectado a Rust+. Escuchando alarma...".
+      </li>
+    </ol>
+
+    <details class="alt">
+      <summary>Truco alternativo: sacar el ID sin parear</summary>
+      <p>
+        Pegale un golpe a la Smart Alarm en el juego, abri la consola con
+        <code>F1</code> y escribi <code>combatlog</code>. El ID de la entidad
+        aparece en la lista como objetivo del golpe. Metodo documentado por la
+        libreria oficial; util si el listener no te llega.
+      </p>
+    </details>
+
+    <h4>Si el log dice "not_found"</h4>
+    <p>
+      Significa que el servidor conecta pero esa alarma ya no existe con ese ID. Pasa
+      despues de un wipe o si la alarma fue destruida. Solucion: repeti estos pasos y
+      actualiza el Entity ID. Si tambien cambio el servidor, rehace el otro instructivo
+      completo.
+    </p>
+
+    <div class="note">
+      <b>Ojo:</b> el Entity ID cambia con cada wipe. Si tenes varias alarmas, pareas una
+      por vez y anotas cual es cual: la notificacion llega con el nombre que le pusiste
+      al dispositivo.
+    </div>
+
+    <button type="button" class="close">Cerrar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const FIELDS = ["IP","PORT","STEAM_ID","PLAYER_TOKEN","ALARM_ENTITY_ID","CHECK_INTERVAL","COOLDOWN"];
+const STATUS_LABEL = {stopped:"Detenido", starting:"Conectando...", running:"Conectado", error:"Error"};
+let lastSeq = 0;
+let dirty = false;
+let logEmpty = true;
+
+const $ = id => document.getElementById(id);
+
+function toast(message, kind) {
+  const el = $("toast");
+  el.textContent = message;
+  el.className = kind || "";
+  el.style.display = "block";
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = "none"; }, 4000);
+}
+
+function clearErrors() {
+  FIELDS.forEach(name => {
+    const wrap = document.querySelector(`[data-field="${name}"]`);
+    wrap.classList.remove("invalid");
+    wrap.querySelector(".err").textContent = "";
+  });
+}
+
+function showErrors(errors) {
+  clearErrors();
+  Object.entries(errors || {}).forEach(([name, message]) => {
+    const wrap = document.querySelector(`[data-field="${name}"]`);
+    if (!wrap) return;
+    wrap.classList.add("invalid");
+    wrap.querySelector(".err").textContent = message;
+  });
+}
+
+function formData() {
+  const out = {};
+  FIELDS.forEach(name => { out[name] = $(name).value.trim(); });
+  return out;
+}
+
+function fillForm(config) {
+  FIELDS.forEach(name => { $(name).value = config[name] ?? ""; });
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    if (data.errors) showErrors(data.errors);
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  clearErrors();
+  return data;
+}
+
+function post(path, body) {
+  return api(path, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body || {}),
+  });
+}
+
+function timeOf(seconds) {
+  if (!seconds) return "—";
+  return new Date(seconds * 1000).toLocaleTimeString("es", {hour12: false});
+}
+
+function appendLogs(entries) {
+  if (!entries.length) return;
+  const box = $("log");
+  if (logEmpty) { box.innerHTML = ""; logEmpty = false; }
+  const stuck = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  entries.forEach(entry => {
+    lastSeq = Math.max(lastSeq, entry.seq);
+    const line = document.createElement("div");
+    line.className = "line " + entry.level;
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = timeOf(entry.ts);
+    const m = document.createElement("span");
+    m.className = "m";
+    m.textContent = entry.message;
+    line.append(t, m);
+    box.appendChild(line);
+  });
+  while (box.childElementCount > 400) box.removeChild(box.firstChild);
+  if (stuck) box.scrollTop = box.scrollHeight;
+}
+
+function render(state) {
+  const mon = state.monitor;
+
+  const badge = $("statusBadge");
+  badge.className = "badge " + mon.status;
+  $("statusText").textContent = STATUS_LABEL[mon.status] || mon.status;
+  $("detail").textContent = mon.detail || " ";
+  $("alarmBadge").style.display = mon.alarm_on ? "inline-flex" : "none";
+
+  $("btnStart").disabled = mon.running;
+  $("btnStop").disabled = !mon.running;
+  FIELDS.forEach(name => { $(name).disabled = mon.running; });
+  $("btnSave").disabled = mon.running;
+
+  $("statTriggers").textContent = mon.trigger_count;
+  $("statCheck").textContent = timeOf(mon.last_check);
+  $("statTrigger").textContent = timeOf(mon.last_trigger);
+
+  $("pathConfig").textContent = "config.json: " + state.config_path;
+  $("pathSound").textContent = state.sound_exists
+    ? "sonido: " + state.sound_path
+    : "FALTA el archivo de sonido: " + state.sound_path;
+
+  if (!dirty && !mon.running) fillForm(state.config);
+  appendLogs(state.logs);
+}
+
+async function poll() {
+  try {
+    render(await api(`/api/state?since=${lastSeq}`));
+  } catch (err) {
+    $("statusText").textContent = "Sin conexion al panel";
+  }
+}
+
+$("form").addEventListener("input", () => { dirty = true; });
+
+$("form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    const data = await post("/api/config", formData());
+    dirty = false;
+    render(data.state);
+    toast("Configuracion guardada", "ok");
+  } catch (err) { toast(err.message, "error"); }
+});
+
+$("btnStart").addEventListener("click", async () => {
+  try {
+    const data = await post("/api/monitor/start", formData());
+    dirty = false;
+    render(data.state);
+  } catch (err) { toast(err.message, "error"); }
+});
+
+$("btnStop").addEventListener("click", async () => {
+  try { render((await post("/api/monitor/stop")).state); }
+  catch (err) { toast(err.message, "error"); }
+});
+
+$("btnTest").addEventListener("click", async () => {
+  try { await post("/api/sound/test"); }
+  catch (err) { toast(err.message, "error"); }
+});
+
+$("btnMute").addEventListener("click", () => post("/api/sound/stop").catch(() => {}));
+
+// ---- modales de ayuda ----
+
+function openModal(id) { $(id).classList.add("open"); }
+function closeModals() {
+  document.querySelectorAll(".overlay.open").forEach(el => el.classList.remove("open"));
+}
+
+document.querySelectorAll("button[data-modal]").forEach(btn => {
+  btn.addEventListener("click", () => openModal(btn.dataset.modal));
+});
+
+document.querySelectorAll(".overlay").forEach(overlay => {
+  overlay.addEventListener("click", event => {
+    if (event.target === overlay) closeModals();
+  });
+});
+
+document.querySelectorAll(".modal .close").forEach(btn => {
+  btn.addEventListener("click", closeModals);
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") closeModals();
+});
+
+document.querySelectorAll(".cmd .copy").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const text = btn.parentElement.querySelector("code").textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "Copiado";
+    } catch (_) {
+      // clipboard bloqueado: seleccionar el texto para copiar a mano
+      const range = document.createRange();
+      range.selectNodeContents(btn.parentElement.querySelector("code"));
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      btn.textContent = "Copia manual";
+    }
+    setTimeout(() => { btn.textContent = "Copiar"; }, 1800);
+  });
+});
+
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

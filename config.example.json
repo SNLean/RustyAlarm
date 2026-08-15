@@ -1,0 +1,9 @@
+{
+  "IP": "0.0.0.0",
+  "PORT": "28082",
+  "STEAM_ID": 0,
+  "PLAYER_TOKEN": 0,
+  "ALARM_ENTITY_ID": 0,
+  "CHECK_INTERVAL": 3,
+  "COOLDOWN": 10
+}
