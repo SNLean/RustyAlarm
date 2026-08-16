@@ -20,7 +20,6 @@ from .monitor import manager
 from .notify import send_discord
 
 OAUTH_STATE_COOKIE = "rustalarm_oauth_state"
-PAIR_STATE_COOKIE = "rustalarm_pair_state"
 
 # Rate limit de la verificacion en vivo: cada verify abre una conexion saliente
 # a un ip:port que elige el usuario. Sin freno seria un escaner de puertos a
@@ -143,10 +142,6 @@ async def panel(request: Request):
         "user": dict(user),
         "admin": is_admin(user),
         "max_alarms": MAX_ALARMS,
-        # El pairing automatico necesita que Facepunch pueda devolver el token a
-        # nuestro /pair/callback, y eso solo pasa con un callback HTTPS publico
-        # (no http/localhost). En local la via es pegar los datos a mano.
-        "auto_pairing": SECURE_COOKIES,
     })
 
 
@@ -343,67 +338,48 @@ async def test_webhook_url(request: Request):
 
 @app.post("/api/pair/start")
 async def pair_start(request: Request):
-    """Prepara la vinculacion: registra FCM/Expo y devuelve la URL de login
-    de Facepunch. El wizard abre esa URL en otra pestana."""
+    """Prepara la vinculacion: registra FCM/Expo y devuelve la URL de login de
+    Facepunch + un ``link_nonce`` de un solo uso. El panel abre la URL en un
+    popup; la extension RustyAlarm Link captura el Token ahi y lo entrega a
+    /api/pair/link con ese nonce. Anda en HTTP local igual (no depende de que
+    Facepunch redirija a nosotros)."""
     user = current_user(request)
     if user is None:
         return need_login()
     if not same_origin(request):
         return JSONResponse({"error": "Origen invalido"}, status_code=403)
-    # Sin HTTPS publico, Facepunch no puede devolver el token a /pair/callback:
-    # el flujo quedaria colgado. Cortar aca y mandar a la via manual.
-    if not SECURE_COOKIES:
-        return JSONResponse(
-            {"error": "El pairing automatico necesita el sitio publicado en HTTPS."
-                      " En local, pega los datos de vinculacion a mano.",
-             "manual": True},
-            status_code=400)
     try:
         session = await pairing.pairing_manager.start(user["steam_id"])
     except pairing.PairingError as exc:
         return JSONResponse({"error": str(exc)}, status_code=503)
-    response = JSONResponse({"ok": True, "login_url": pairing.login_url(BASE_URL)})
-    response.set_cookie(
-        PAIR_STATE_COOKIE, session.csrf,
-        max_age=pairing.WAIT_LOGIN_TTL,
-        httponly=True, samesite="lax", secure=SECURE_COOKIES,
-    )
-    return response
+    return JSONResponse({
+        "ok": True,
+        "login_url": pairing.login_url(),
+        "link_nonce": session.link_nonce,
+    })
 
 
-@app.get("/pair/callback")
-async def pair_callback(request: Request):
-    """Retorno del login de Facepunch con ?token=<AuthToken>. El token es un
-    secreto: se usa para registrar el dispositivo y se descarta. No loguearlo."""
-    user = current_user(request)
-    if user is None:
-        return RedirectResponse("/", status_code=302)
-    session = pairing.pairing_manager.get(user["steam_id"])
-    cookie_state = request.cookies.get(PAIR_STATE_COOKIE, "")
-    if (session is None or session.state != "waiting_login" or not cookie_state
-            or not secrets.compare_digest(cookie_state, session.csrf)):
-        return HTMLResponse(
-            "Vinculacion expirada. Volve al panel y proba de nuevo.",
-            status_code=400)
-    token = request.query_params.get("token", "")
+@app.post("/api/pair/link")
+async def pair_link(request: Request):
+    """Entrega del Token desde la extension. NO usa cookie de sesion: la
+    autoriza el ``link_nonce`` (capacidad de un solo uso, ligada a una sesion
+    de pairing que arranco un usuario logueado). Sin same_origin: la extension
+    postea desde el contexto de la pagina de Facepunch. El Token es secreto:
+    se usa una vez para registrar el dispositivo y se descarta; nunca se logea."""
+    data = await read_json(request)
+    nonce = str(data.get("nonce", ""))
+    token = str(data.get("token", ""))
+    session = pairing.pairing_manager.by_nonce(nonce)
+    if session is None:
+        return JSONResponse({"error": "Vinculacion no encontrada o vencida"},
+                            status_code=404)
     if not token:
-        return HTMLResponse(
-            "Facepunch no devolvio el token. Volve al panel y proba de nuevo.",
-            status_code=400)
+        return JSONResponse({"error": "Falta el token"}, status_code=400)
     try:
         await pairing.pairing_manager.activate(session, token)
     except pairing.PairingError as exc:
-        return HTMLResponse(str(exc), status_code=502)
-    response = HTMLResponse(
-        "<!doctype html><meta charset='utf-8'><title>RustyAlarm</title>"
-        "<body style='background:#17130f;color:#e8ddcf;font-family:sans-serif;"
-        "display:grid;place-items:center;height:100vh;margin:0'><div>"
-        "<h2>Cuenta vinculada ✔</h2>"
-        "<p>Volve a la pestana del panel y segui con el asistente.<br>"
-        "Podes cerrar esta ventana.</p></div>"
-        "<script>setTimeout(()=>window.close(),1500)</script></body>")
-    response.delete_cookie(PAIR_STATE_COOKIE)
-    return response
+        return JSONResponse({"error": str(exc)}, status_code=502)
+    return {"ok": True}
 
 
 @app.get("/api/pair/status")

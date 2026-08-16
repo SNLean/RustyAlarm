@@ -59,6 +59,19 @@ Adversarial review (6-dimension workflow, findings verified) surfaced real issue
 - **Misleading verify error (medium):** a prior-wipe player token made verify say "Entity ID no existe"; now only `not_found` says that, other failures give a neutral "revisá player token y Entity ID".
 - **Low:** `_verify_last` pruned so it doesn't grow per-user; `runVerify()` single-flight so a superseding 429 can't overwrite a good result.
 
+## Follow-up 3 — the RustyAlarm Link extension (real automatic path)
+
+Corrected an earlier wrong conclusion: HTTPS does **not** make the hosted auto-flow work. Reading rustplus.js `cli/pair.html` proved Facepunch delivers the token **only** via `window.ReactNativeWebView.postMessage` (they removed the `?token=` URL redirect), catchable only by a native app / browser extension / `--disable-web-security` browser — never a plain hosted page. The rustplus.py docs (rplus.ollieee.xyz) confirm there is **no API** to get ip/port/playerToken without FCM pairing (only `entityId` has a non-pairing path: the in-game `combatlog` trick).
+
+So the only way to a one-click in-app flow is our own extension. Built `extension/` (MV3, Chromium):
+- `inject.js` (MAIN world on Facepunch) defines the `ReactNativeWebView` bridge; `facepunch.js` relays the captured `{SteamId, Token}` to `background.js`.
+- `panel.js` (on our origin) announces the extension to the panel and hands it the `link_nonce`.
+- `background.js` POSTs `{nonce, token}` to `/api/pair/link`.
+
+Backend: `/api/pair/start` now returns a single-use `link_nonce` (on the PairingSession); new `/api/pair/link` is authorized by that nonce (no cookie/`same_origin` — the extension posts cross-origin), calls `activate()` (register + listen), consumes the nonce. Removed the dead `/pair/callback` redirect route and the HTTPS gate — the extension path works on `http://127.0.0.1` too. `login_url()` dropped its `returnUrl` (unused now). The panel detects the extension via a `postMessage` handshake and only offers the auto button when present; otherwise the manual-paste box.
+
+Reused all of `pairing.py` (FCM register + Expo + MCS listener) and `verify.py` unchanged.
+
 ## References
 
 - [[Rust+ pairing]] — where these values come from, manual flow

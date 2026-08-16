@@ -464,7 +464,8 @@
 {% block script %}
 <script>
 const USER_STEAM_ID = "{{ user.steam_id }}";
-const AUTO_PAIRING = {{ 'true' if auto_pairing else 'false' }};
+// La extensión RustyAlarm Link (si está instalada) avisa "ready" por postMessage.
+let EXT_READY = false;
 const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown"];
 const STATUS_LABEL = {
   running: "Conectada", starting: "Conectando...", retrying: "Reintentando",
@@ -750,20 +751,23 @@ function pairShowSteps(show) {
 }
 
 async function pairStart() {
-  // El pairing automático necesita que Facepunch pueda devolver el token a un
-  // callback HTTPS público. En local (http/127.0.0.1) no llega: mandamos a la
-  // vía manual en vez de dejar el flujo colgado.
-  if (!AUTO_PAIRING) {
+  // Facepunch entrega el token por ReactNativeWebView.postMessage, que solo una
+  // extensión puede capturar. Sin la extensión RustyAlarm Link, mandamos al
+  // pegado manual en vez de dejar el flujo colgado.
+  if (!EXT_READY) {
     pairBoxes().forEach(box => {
       const d = box.querySelector(".pair-manual");
       if (d) d.open = true;
     });
-    toast("El pairing automático necesita el sitio publicado (HTTPS). Pegá los datos abajo.", "err");
+    toast("Instalá la extensión RustyAlarm Link para el modo automático, o pegá los datos abajo.", "err");
     return;
   }
   try {
     const r = await send("/api/pair/start", "POST", {});
-    // Popup aparte: el login de Steam/Facepunch vuelve a /pair/callback.
+    // Pasarle el nonce a la extensión: autoriza la entrega del Token sin cookie.
+    window.postMessage({ source: "rustyalarm-page", type: "link",
+      nonce: r.link_nonce, apiBase: location.origin }, location.origin);
+    // Popup del login de Steam; la extensión captura el Token ahí dentro.
     window.open(r.login_url, "_blank", "noopener");
     pair.active = true;
     pair.filledServer = pair.filledEntity = false;
@@ -774,6 +778,20 @@ async function pairStart() {
     toast(e.message, "err");
   }
 }
+
+// Detección de la extensión: escuchar su "ready" y hacer un ping por si el
+// panel cargó antes que el content script.
+window.addEventListener("message", (e) => {
+  if (e.source !== window || !e.data || e.data.source !== "rustyalarm-ext") return;
+  if (e.data.type === "ready" && !EXT_READY) {
+    EXT_READY = true;
+    pairBoxes().forEach(box => {
+      const st = box.querySelector("[data-pair-status]");
+      if (st && !st.textContent.trim()) st.textContent = "Extensión detectada ✓";
+    });
+  }
+});
+window.postMessage({ source: "rustyalarm-page", type: "ping" }, location.origin);
 
 // Los enteros grandes viajan como string y se asignan como string: nunca
 // pasarlos por Number (pierden precisión).

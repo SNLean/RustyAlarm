@@ -86,6 +86,9 @@ class PairingSession:
         self.steam_id = steam_id
         self.state = "registering"   # registering|waiting_login|listening|expired|error
         self.csrf = secrets.token_urlsafe(16)
+        # Capacidad de un solo uso que autoriza a la extension a entregar el
+        # Token sin cookie nuestra. Se consume al vincular.
+        self.link_nonce = secrets.token_urlsafe(24)
         self.created = time.monotonic()
         self.lock = threading.Lock()
         self.fcm_credentials = None
@@ -252,6 +255,17 @@ class PairingManager:
     def get(self, steam_id: str):
         return self.sessions.get(steam_id)
 
+    def by_nonce(self, nonce: str):
+        """Sesion que espera login y cuyo link_nonce coincide (comparacion en
+        tiempo constante). None si no hay ninguna."""
+        if not nonce:
+            return None
+        for session in self.sessions.values():
+            if (session.state == "waiting_login"
+                    and secrets.compare_digest(session.link_nonce, nonce)):
+                return session
+        return None
+
     async def start(self, steam_id: str) -> PairingSession:
         with self._lock:
             self._sweep_locked()
@@ -282,6 +296,8 @@ class PairingManager:
     async def activate(self, session: PairingSession, auth_token: str) -> None:
         """Registra el dispositivo en la cuenta Facepunch y arranca la escucha.
         ``auth_token`` no se persiste: se usa y se descarta."""
+        # Consumir el nonce: el link es de un solo uso.
+        session.link_nonce = ""
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 response = await client.post(f"{COMPANION_URL}/api/push/register", json={
@@ -327,9 +343,10 @@ class PairingManager:
             self.sessions.pop(sid).stop()
 
 
-def login_url(base_url: str) -> str:
-    return (f"{COMPANION_URL}/login"
-            f"?returnUrl={quote(f'{base_url}/pair/callback', safe='')}")
+def login_url() -> str:
+    # Sin returnUrl: la extension captura el Token via ReactNativeWebView.
+    # postMessage en la propia pagina de Facepunch, no por redirect.
+    return f"{COMPANION_URL}/login"
 
 
 pairing_manager = PairingManager()
