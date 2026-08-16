@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/PC/Desktop/RUST APP/docs/Log/2026-08-15 — Frontend redesign.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "2026-08-15 — Frontend redesign",
+  "summary": "Session log documenting a full frontend redesign of the subscription/monitoring service — design tokens, typography, landing/panel/admin pages, and motion.",
+  "scope": ["design tokens", "typography", "landing page", "panel", "admin", "motion/animation", "monitoring console"],
+  "cross_refs": ["Subscription service", "Design and animation skills", "https://github.com/anthropics/skills"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

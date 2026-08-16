@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/PC/Desktop/RUST APP/docs/Log/2026-08-15 — Security audit and fixes.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "2026-08-15 — Security audit and fixes",
+  "summary": "Session log of a RustyAlarm security audit: 14 deduped findings, fixes applied for SEC-001..013, and a deferred remediation backlog.",
+  "scope": ["RustyAlarm", "security audit", "CSRF", "SSRF", "session tokens", "XSS escaping", "desktop tool", "nginx rate limiting", "CSP"],
+  "cross_refs": ["[[Security review]]", "[[Desktop tool]]", ".planning/security-audit/2026-08-15/SECURITY-REVIEW.md", ".planning/security-audit/2026-08-15/FINDINGS.json", ".planning/security-audit/2026-08-15/GSD-REMEDIATION.md", ".planning/security-audit/2026-08-15/VERIFY-CHECKLIST.md", ".planning/security-audit/2026-08-15/AUDIT-METADATA.md", ".planning/security-audit/2026-08-15/FIXES-APPLIED.md", ".planning/ROADMAP.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Manifest-declared DOC (session log). Contains forward-looking deferred remediation items worth surfacing to the synthesizer as requirements/roadmap seeds: SEC-006 poll-payload minimization, SEC-011 CSP unsafe-inline removal, SEC-003 app-layer rate limiter, SEC-010 session rotation, SEC-014 CI scanning + signed binaries."
+}

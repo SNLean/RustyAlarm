@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/PC/Desktop/RUST APP/docs/Log/2026-08-15 — From script to service.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "2026-08-15 — From script to service",
+  "summary": "Session log of RustyAlarm's evolution from a loose script into a hosted Rust+ raid-alarm subscription service with repo, deploy configs, and security review.",
+  "scope": ["RustyAlarm", "Rust+ subscription service", "desktop tool", "Steam OpenID login", "Discord webhooks", "SQLite", "VPS deployment", "nginx", "security review"],
+  "cross_refs": ["Home", "Desktop tool", "Rust+ pairing", "Steam OpenID", "Discord Webhooks", "Subscription service", "Architecture", "Security review", "Product decisions", "VPS deployment"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
