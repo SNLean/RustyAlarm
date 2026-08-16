@@ -677,7 +677,7 @@ $("btnFirst").addEventListener("click", () => openWizard());
 // Una sesión de pairing por usuario, del lado del server. Acá: arrancarla,
 // pollear su estado mientras el wizard está abierto y volcar los datos.
 
-const pair = { active: false, timer: null, filledServer: false, filledEntity: false };
+const pair = { active: false, timer: null, filledServer: false, filledEntity: false, notifiedListening: false };
 
 function pairBoxes() { return [...wizForm.querySelectorAll("[data-pair]")]; }
 
@@ -713,6 +713,7 @@ async function pairStart() {
     window.open(r.login_url, "_blank", "noopener");
     pair.active = true;
     pair.filledServer = pair.filledEntity = false;
+    pair.notifiedListening = false;
     pairStatus("Esperando login con Steam…");
     clearInterval(pair.timer);
     pair.timer = setInterval(pairPoll, 2000);
@@ -744,6 +745,10 @@ async function pairPoll() {
 
   if (s.state === "waiting_login") pairStatus("Esperando login con Steam…");
   else if (s.state === "listening") {
+    if (!pair.notifiedListening) {
+      pair.notifiedListening = true;
+      toast("Cuenta vinculada ✓ — ahora pareá en el juego (podés cerrar la ventana de Steam)", "ok");
+    }
     pairShowSteps(true);
     pairStatus(pair.filledServer && !pair.filledEntity
       ? "Ahora pareá la Smart Alarm…" : "Escuchando… pareá en el juego", "listen");

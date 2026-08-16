@@ -6,4 +6,8 @@ window.addEventListener("message", function (e) {
   var d = e.data;
   if (!d || d.__rustyalarm !== "token") return;
   chrome.runtime.sendMessage({ type: "rustyalarm-token", raw: d.payload });
+  // Ya capturamos el token: cerrar el popup de login (Facepunch te deja en su
+  // pagina /app y no vuelve solo) para que el usuario regrese al panel, que
+  // avanza por su cuenta con el polling de estado.
+  setTimeout(function () { try { window.close(); } catch (err) {} }, 900);
 });
