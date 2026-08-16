@@ -1,82 +1,214 @@
 {% extends "base.html" %}
-{% block title %}Alarma Rust+ — Tu base avisa aunque estes offline{% endblock %}
+{% block title %}RustyAlarm — El raid suena, vos ya lo sabés{% endblock %}
 
 {% block style %}
-  .hero {
-    max-width: 860px; margin: 0 auto; padding: 90px 24px 50px; text-align: center;
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- Hero ---- */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px;
+    align-items: center; padding: 76px 0 64px; }
+  @media (max-width: 880px) { .hero { grid-template-columns: 1fr; gap: 36px; padding: 48px 0 40px; } }
+  .hero h2 {
+    font-size: clamp(34px, 5.4vw, 58px); line-height: 1.02; letter-spacing: -0.035em;
+    margin: 16px 0 18px; font-weight: 800;
   }
-  .hero h2 { font-size: 42px; line-height: 1.15; margin: 0 0 18px; }
-  .hero h2 em { color: var(--accent-soft); font-style: normal; }
-  .hero p { font-size: 18px; color: var(--muted); margin: 0 auto 34px; max-width: 560px; }
+  .hero h2 .hl { color: var(--rust-bright); }
+  .hero p.sub { font-size: 17px; color: var(--text-dim); margin: 0 0 28px; max-width: 30em; }
+  .cta-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .steam-btn {
-    display: inline-flex; align-items: center; gap: 12px;
-    background: #171a21; border: 1px solid #2a475e; border-radius: 8px;
-    padding: 14px 26px; font-size: 17px; font-weight: 700; color: #fff;
-    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 11px;
+    background: linear-gradient(180deg, #2a3a4a, #1b2733);
+    border: 1px solid #37546b; border-radius: var(--r);
+    padding: 13px 22px; font-size: 16px; font-weight: 700; color: #fff; text-decoration: none;
+    transition: transform var(--t-fast) var(--ease-out), border-color var(--t) var(--ease-out), filter var(--t) var(--ease-out);
   }
-  .steam-btn:hover { border-color: #66c0f4; }
-  .steam-btn svg { width: 26px; height: 26px; }
-  .grid {
-    max-width: 960px; margin: 30px auto 80px; padding: 0 24px;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  .steam-btn:active { transform: scale(.97); }
+  @media (hover: hover) { .steam-btn:hover { border-color: #66c0f4; filter: brightness(1.08); } }
+  .steam-btn svg { width: 22px; height: 22px; }
+  .cta-note { font-size: 13px; color: var(--text-mute); }
+  .cta-note .signal { display: inline-block; vertical-align: middle; margin-right: 5px; }
+
+  /* ---- Consola (firma) ---- */
+  .console {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+    border: 1px solid var(--line-2); border-radius: var(--r-lg);
+    box-shadow: var(--shadow-pop); overflow: hidden;
   }
-  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
-  .feature {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 22px;
+  .console-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface-3) 60%, transparent);
   }
-  .feature h3 { margin: 0 0 8px; font-size: 16px; }
-  .feature p { margin: 0; color: var(--muted); font-size: 14px; }
-  .price {
-    text-align: center; margin: 0 auto 90px; max-width: 420px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 30px;
+  .console-bar .addr { font-size: 13px; color: var(--text-dim); }
+  .live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: .12em; color: var(--signal); }
+  .console-body { padding: 18px 16px; display: grid; gap: 14px; }
+  .alarm-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 16px; border-radius: var(--r);
+    background: var(--surface-1); border: 1px solid var(--line);
+    box-shadow: 0 0 0 1px var(--rust-tint), 0 0 34px -8px var(--rust-tint);
   }
-  .price .tag { font-size: 34px; font-weight: 700; color: var(--accent-soft); }
-  .price p { color: var(--muted); font-size: 14px; }
-  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 0 40px; }
+  .a-name { font-weight: 700; font-size: 15px; }
+  .a-meta { font-size: 12px; color: var(--text-mute); margin-top: 2px; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px;
+    border-radius: var(--r-pill); font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .1em; font-weight: 600;
+    color: var(--rust-bright); border: 1px solid color-mix(in srgb, var(--rust) 55%, var(--line-2));
+    background: var(--rust-tint);
+  }
+  .alert {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border-radius: var(--r); background: var(--surface-3); border: 1px solid var(--line);
+  }
+  .alert .glyph { width: 30px; height: 30px; border-radius: 8px; flex: none;
+    display: grid; place-items: center; background: var(--rust-tint); color: var(--rust-bright); }
+  .alert b { font-size: 14px; }
+  .alert .t { font-size: 12px; color: var(--text-mute); margin-top: 1px; }
+
+  /* ---- Secciones ---- */
+  section { padding: 56px 0; border-top: 1px solid var(--line); }
+  .sec-head { max-width: 34em; margin-bottom: 34px; }
+  .sec-head h3 { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.03em; margin: 10px 0 8px; }
+  .sec-head p { color: var(--text-dim); margin: 0; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }
+  .step-card { background: var(--surface-1); border: 1px solid var(--line);
+    border-radius: var(--r-lg); padding: 22px; }
+  .step-card .n { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em;
+    color: var(--rust-bright); }
+  .step-card h4 { margin: 12px 0 7px; font-size: 17px; letter-spacing: -0.02em; }
+  .step-card p { margin: 0; color: var(--text-dim); font-size: 14px; }
+
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 760px) { .features { grid-template-columns: 1fr; } }
+  .feature { background: var(--surface-1); border: 1px solid var(--line);
+    border-radius: var(--r-lg); padding: 22px;
+    transition: transform var(--t) var(--ease-out), border-color var(--t) var(--ease-out); }
+  @media (hover: hover) { .feature:hover { transform: translateY(-3px); border-color: var(--line-2); } }
+  .feature h4 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.02em; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 14px; }
+
+  .price { text-align: center; max-width: 460px; margin: 0 auto;
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+    border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: 34px 30px;
+    box-shadow: var(--shadow-2); }
+  .price .tag { font-size: 15px; font-family: var(--font-mono); letter-spacing: .1em;
+    color: var(--signal); }
+  .price h3 { font-size: 30px; letter-spacing: -0.03em; margin: 8px 0 10px; }
+  .price p { color: var(--text-dim); font-size: 14px; margin: 0 0 22px; }
+
+  footer { text-align: center; color: var(--text-mute); font-size: 13px;
+    padding: 36px 0 46px; border-top: 1px solid var(--line); }
 {% endblock %}
 
 {% block body %}
 <header>
-  <h1><a href="/">Alarma Rust+</a></h1>
+  <a class="brand" href="/"><span class="signal rust"></span> RustyAlarm</a>
   <span class="spacer"></span>
-  <a class="btn" href="/login">Entrar</a>
+  <a class="btn ghost" href="/login">Entrar</a>
 </header>
 
-<div class="hero">
-  <h2>Te <em>raidean</em> y no te enteras.<br>Eso se termina hoy.</h2>
-  <p>
-    Conectamos tu Smart Alarm de Rust+ a Discord. Cuando tu base esta bajo ataque,
-    te llega el aviso al toque: en el celular, en la compu, donde tengas Discord.
-    Sin dejar la PC prendida, sin apps raras.
-  </p>
-  <a class="steam-btn" href="/login">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.8 2 2.5 5.9 2 11l5.4 2.2c.5-.3 1-.5 1.6-.5l2.4-3.5v-.1c0-2.1 1.7-3.8 3.8-3.8s3.8 1.7 3.8 3.8-1.7 3.8-3.8 3.8h-.1l-3.4 2.5v.1c0 1.6-1.3 2.8-2.8 2.8-1.4 0-2.5-1-2.8-2.3L2.3 14C3.2 18.6 7.2 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm-5.7 14.2l1.2.5c.2.9 1 1.5 1.9 1.5 1.1 0 2-.9 2-2s-.9-2-2-2c-.3 0-.5 0-.7.1l1.3.5c.8.3 1.1 1.2.8 1.9-.3.8-1.2 1.1-1.9.8l-2.6-1.3zm12.3-8.3c0-1.4-1.1-2.5-2.5-2.5s-2.5 1.1-2.5 2.5 1.1 2.5 2.5 2.5 2.5-1.1 2.5-2.5zm-4.4 0c0-1 .8-1.9 1.9-1.9s1.9.8 1.9 1.9-.8 1.9-1.9 1.9-1.9-.9-1.9-1.9z"/></svg>
-    Entrar con Steam
-  </a>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <span class="eyebrow">Monitoreo 24/7 · Rust+</span>
+      <h2>El raid suena.<br>Vos ya <span class="hl">lo sabés</span>.</h2>
+      <p class="sub">Conectamos tu Smart Alarm de Rust a Discord. En cuanto se dispara, te llega el aviso —en el celular, en la compu, donde estés— sin dejar la PC prendida.</p>
+      <div class="cta-row">
+        <a class="steam-btn" href="/login">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.8 2 2.5 5.9 2 11l5.4 2.2c.5-.3 1-.5 1.6-.5l2.4-3.5v-.1a3.8 3.8 0 1 1 3.8 3.8h-.1l-3.4 2.5v.1a2.8 2.8 0 0 1-5.6.5L2.3 14C3.2 18.6 7.2 22 12 22a10 10 0 0 0 0-20zm-4.3 15.2 1.2.5a2 2 0 1 0 1.2-2.6l1.3.5a1.5 1.5 0 1 1-1.1 2.8l-2.6-1.2zM18.3 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zm-4.4 0a1.9 1.9 0 1 0 3.8 0 1.9 1.9 0 0 0-3.8 0z"/></svg>
+          Entrar con Steam
+        </a>
+        <span class="cta-note"><span class="signal"></span> Gratis en beta · sin tarjeta</span>
+      </div>
+    </div>
+
+    <div class="console" data-reveal>
+      <div class="console-bar">
+        <span class="mono addr">200.40.131.36:28082</span>
+        <span class="live"><span class="signal"></span> EN LÍNEA</span>
+      </div>
+      <div class="console-body">
+        <div class="alarm-row">
+          <div>
+            <div class="a-name">Base principal</div>
+            <div class="mono a-meta">entity 8219433</div>
+          </div>
+          <span class="status-pill"><span class="signal rust"></span> SONANDO</span>
+        </div>
+        <div class="alert">
+          <span class="glyph">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          </span>
+          <div>
+            <b>¡Alarma activada!</b>
+            <div class="mono t">→ enviado a Discord · 03:14</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="grid">
-  <div class="feature">
-    <h3>Aviso en segundos</h3>
-    <p>Monitoreamos tu alarma las 24 horas. Se dispara, te llega el mensaje a Discord con nombre de alarma y servidor.</p>
-  </div>
-  <div class="feature">
-    <h3>Configuracion guiada</h3>
-    <p>Instructivos paso a paso para parear tu servidor y tu alarma. Pegas cuatro datos y listo.</p>
-  </div>
-  <div class="feature">
-    <h3>Varias alarmas</h3>
-    <p>Base principal, externas, farm base: cada alarma con su nombre, su webhook y su configuracion.</p>
-  </div>
+<div class="wrap">
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Cómo funciona</span>
+      <h3>De la base al Discord, en tres pasos.</h3>
+      <p>Lo conectás una vez. Después el trabajo lo hacemos nosotros.</p>
+    </div>
+    <div class="steps">
+      <div class="step-card" data-reveal>
+        <div class="n">PASO 01</div>
+        <h4>Conectás tu alarma</h4>
+        <p>Pegás los datos de tu servidor y tu Smart Alarm. Un asistente te guía dato por dato.</p>
+      </div>
+      <div class="step-card" data-reveal style="transition-delay:60ms">
+        <div class="n">PASO 02</div>
+        <h4>Vigilamos sin parar</h4>
+        <p>Nuestro servidor consulta tu alarma cada pocos segundos, las 24 horas.</p>
+      </div>
+      <div class="step-card" data-reveal style="transition-delay:120ms">
+        <div class="n">PASO 03</div>
+        <h4>Te avisamos</h4>
+        <p>Se dispara y te llega a Discord al instante, con el servidor y la hora.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Por qué</span>
+      <h3>Pensado para no perderte un raid.</h3>
+    </div>
+    <div class="features">
+      <div class="feature" data-reveal>
+        <h4>Aviso en segundos</h4>
+        <p>En cuanto la alarma se dispara, el mensaje llega a tu canal de Discord con el nombre de la base y la hora exacta.</p>
+      </div>
+      <div class="feature" data-reveal style="transition-delay:60ms">
+        <h4>Nada que dejar prendido</h4>
+        <p>Corre en nuestro servidor, no en tu PC. Cerrá el juego y seguí recibiendo avisos igual.</p>
+      </div>
+      <div class="feature" data-reveal style="transition-delay:120ms">
+        <h4>Varias bases, un panel</h4>
+        <p>Principal, farm, externa: cada alarma con su nombre y su propio canal de aviso.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="text-align:center">
+    <div class="price" data-reveal>
+      <div class="tag">BETA GRATIS</div>
+      <h3>Probalo sin pagar nada</h3>
+      <p>Durante la beta el servicio es gratis. Los que entran ahora se quedan con precio preferencial cuando salga la suscripción.</p>
+      <a class="btn primary" href="/login">Crear mi cuenta con Steam</a>
+    </div>
+  </section>
 </div>
 
-<div class="price">
-  <div class="tag">Beta gratis</div>
-  <p>Durante la beta el servicio es gratuito. Cuando salga la suscripcion mensual, los usuarios de la beta van a tener precio preferencial.</p>
-  <a class="btn primary" href="/login">Crear mi cuenta con Steam</a>
-</div>
-
-<footer>Alarma Rust+ — servicio no afiliado a Facepunch Studios.</footer>
+<footer>RustyAlarm · servicio no afiliado a Facepunch Studios.</footer>
 {% endblock %}

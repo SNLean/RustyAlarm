@@ -40,6 +40,7 @@ Servicio que vigila una **Smart Alarm de Rust** (el juego) vía la API de Rust+ 
 - [[Registro/2026-08-15 — Del script al servicio]]
 - [[Registro/2026-08-15 — Skills de diseño y animación]]
 - [[Registro/2026-08-15 — Asistente de alta guiado]]
+- [[Registro/2026-08-15 — Rediseño del front]]
 
 ## Meta
 

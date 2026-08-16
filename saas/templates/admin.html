@@ -1,38 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Admin — Alarma Rust+{% endblock %}
+{% block title %}Admin — RustyAlarm{% endblock %}
 
 {% block style %}
-  main { max-width: 900px; margin: 0 auto; padding: 24px; }
-  table { width: 100%; border-collapse: collapse; background: var(--panel);
-          border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  th, td { padding: 10px 14px; text-align: left; font-size: 14px;
-           border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
-  td.mono { font-family: Consolas, monospace; font-size: 13px; }
-  .state-on { color: var(--ok); font-weight: 600; }
-  .state-off { color: var(--accent-soft); font-weight: 600; }
+  main { max-width: 940px; margin: 0 auto; padding: 28px 24px; }
+  main h2 { font-size: 24px; letter-spacing: -0.03em; margin: 0 0 6px; }
+  main > p { color: var(--text-dim); margin: 0 0 24px; max-width: 56ch; font-size: 14px; }
+
+  .table-wrap { border: 1px solid var(--line); border-radius: var(--r-lg);
+    overflow: hidden; background: var(--surface-1); box-shadow: var(--shadow-1); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 13px 16px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: none; }
+  th { font-family: var(--font-mono); color: var(--text-mute); font-size: 11px;
+    letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+    background: var(--surface-2); }
+  td.mono { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); }
+  td .num { font-family: var(--font-mono); }
+  @media (hover: hover) { tbody tr { transition: background var(--t) var(--ease-out); }
+    tbody tr:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); } }
+
+  .state {
+    display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px;
+    border-radius: var(--r-pill); font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .06em; font-weight: 600; border: 1px solid var(--line-2);
+  }
+  .state .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .state.on { color: var(--signal); }
+  .state.on .dot { background: var(--signal); box-shadow: 0 0 7px var(--signal); }
+  .state.off { color: var(--text-mute); }
+  .state.off .dot { background: var(--text-mute); }
+  td.act { text-align: right; }
+  td.act button { padding: 6px 12px; font-size: 13px; }
+  .empty-row td { text-align: center; color: var(--text-mute); padding: 40px; }
 {% endblock %}
 
 {% block body %}
 <header>
-  <h1><a href="/panel">Alarma Rust+</a></h1>
-  <span class="muted">admin</span>
+  <a class="brand" href="/panel"><span class="signal rust"></span> RustyAlarm</a>
+  <span class="eyebrow">Admin</span>
   <span class="spacer"></span>
   <a class="btn ghost" href="/panel">Mi panel</a>
 </header>
 
 <main>
   <h2>Usuarios</h2>
-  <p class="muted">
-    Pausar una cuenta detiene el monitoreo de todas sus alarmas. Usalo para dar de
-    baja a quien no pago; cuando integres pagos, esto lo maneja el proveedor solo.
-  </p>
-  <table>
-    <thead>
-      <tr><th>Steam ID</th><th>Alta</th><th>Alarmas</th><th>Plan</th><th>Estado</th><th></th></tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <p>Pausar una cuenta detiene el monitoreo de todas sus alarmas. Úsalo para dar de baja a quien no pagó; cuando integres pagos, el proveedor lo maneja solo.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Steam ID</th><th>Alta</th><th>Alarmas</th><th>Plan</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
 </main>
 {% endblock %}
 
@@ -43,15 +63,17 @@ function dateOf(s) { return new Date(s * 1000).toLocaleDateString("es"); }
 async function refresh() {
   try {
     const data = await api("/api/admin/users");
-    document.getElementById("rows").innerHTML = data.users.map(u => `
+    const rows = data.users.map(u => `
       <tr>
         <td class="mono">${u.steam_id}</td>
-        <td>${dateOf(u.created_at)}</td>
-        <td>${u.alarm_count}</td>
+        <td class="mono">${dateOf(u.created_at)}</td>
+        <td class="num">${u.alarm_count}</td>
         <td>${u.plan}</td>
-        <td class="${u.plan_active ? "state-on" : "state-off"}">${u.plan_active ? "Activo" : "Pausado"}</td>
-        <td><button onclick="toggleUser('${u.steam_id}')">${u.plan_active ? "Pausar" : "Activar"}</button></td>
+        <td><span class="state ${u.plan_active ? "on" : "off"}"><span class="dot"></span>${u.plan_active ? "Activo" : "Pausado"}</span></td>
+        <td class="act"><button onclick="toggleUser('${u.steam_id}')">${u.plan_active ? "Pausar" : "Activar"}</button></td>
       </tr>`).join("");
+    document.getElementById("rows").innerHTML = rows ||
+      `<tr class="empty-row"><td colspan="6">Todavía no hay usuarios.</td></tr>`;
   } catch (err) { toast(err.message, "error"); }
 }
 
