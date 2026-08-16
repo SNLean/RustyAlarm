@@ -162,8 +162,10 @@
   .pairbox {
     border: 1px solid var(--line); border-left: 3px solid var(--accent);
     border-radius: 8px; background: var(--panel-2); padding: 12px 14px;
-    margin: 4px 0 14px;
+    margin: 4px 0 14px; transition: border-color .2s var(--ease-out);
   }
+  .pairbox.linked { border-left-color: var(--ok); }
+  .pair-done { color: var(--ok); font-weight: 700; font-size: 13px; margin-bottom: 2px; }
   .pairbox .pair-head { display: flex; align-items: center; gap: 10px; }
   .pairbox .pair-head b { font-size: 13px; }
   .pairbox .pair-status { font-size: 12px; margin-left: auto; color: var(--muted); }
@@ -286,12 +288,15 @@
             <b>Vinculación con Rust+</b>
             <span class="pair-status" data-pair-status>&nbsp;</span>
           </div>
-          <p class="desc">Logueá con Steam una vez y pareá en el juego; estos campos se completan solos.</p>
+          <p class="desc" data-pair-intro>Logueá con Steam una vez y pareá en el juego; estos campos se completan solos.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
-          <ol data-pair-steps hidden>
-            <li>Dejá esta ventana abierta.</li>
-            <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
-          </ol>
+          <div class="pair-live" data-pair-steps hidden>
+            <div class="pair-done">✓ Cuenta vinculada</div>
+            <ol>
+              <li>Dejá esta ventana abierta.</li>
+              <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
+            </ol>
+          </div>
         </div>
         <div class="frow">
           <div class="field" data-f="ip">
@@ -324,12 +329,15 @@
             <b>Vinculación con Rust+</b>
             <span class="pair-status" data-pair-status>&nbsp;</span>
           </div>
-          <p class="desc">Con la vinculación activa, pareá la alarma y el Entity ID aparece solo.</p>
+          <p class="desc" data-pair-intro>Con la vinculación activa, pareá la alarma y el Entity ID aparece solo.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
-          <ol data-pair-steps hidden>
-            <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
-            <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
-          </ol>
+          <div class="pair-live" data-pair-steps hidden>
+            <div class="pair-done">✓ Cuenta vinculada</div>
+            <ol>
+              <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
+              <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
+            </ol>
+          </div>
         </div>
         <div class="field" data-f="entity_id">
           <label>Entity ID de la alarma</label>
@@ -689,10 +697,27 @@ function pairStatus(text, cls) {
   });
 }
 
+// Apenas arranca el pairing, ocultar botón + intro: ya lo tocaste, seguir
+// mostrándolo da sensación de estancamiento. Al frenar/cancelar, vuelven.
+// (El botón tiene display propio por su clase, así que se togglea por style,
+// no por el atributo hidden.)
+function pairSetActive(active) {
+  pairBoxes().forEach(box => {
+    box.querySelector("[data-pair-btn]").style.display = active ? "none" : "";
+    const intro = box.querySelector("[data-pair-intro]");
+    if (intro) intro.style.display = active ? "none" : "";
+    if (!active) {
+      box.classList.remove("linked");
+      box.querySelector("[data-pair-steps]").hidden = true;
+    }
+  });
+}
+
+// Estado "vinculado y escuchando": muestra el ✓ y los pasos del juego.
 function pairShowSteps(show) {
   pairBoxes().forEach(box => {
+    box.classList.toggle("linked", show);
     box.querySelector("[data-pair-steps]").hidden = !show;
-    box.querySelector("[data-pair-btn]").hidden = show;
   });
 }
 
@@ -714,6 +739,7 @@ async function pairStart() {
     pair.active = true;
     pair.filledServer = pair.filledEntity = false;
     pair.notifiedListening = false;
+    pairSetActive(true);
     pairStatus("Esperando login con Steam…");
     clearInterval(pair.timer);
     pair.timer = setInterval(pairPoll, 2000);
@@ -796,7 +822,7 @@ function pairStopLocal() {
   clearInterval(pair.timer);
   pair.timer = null;
   pair.active = false;
-  pairShowSteps(false);
+  pairSetActive(false);
 }
 
 dlg.addEventListener("close", () => {
