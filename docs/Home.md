@@ -26,6 +26,7 @@ A service that watches a Rust (the game) **Smart Alarm** through the Rust+ API a
 - [[Desktop tool]] — the original local app (`webapp.py`, `rust.py`)
 - [[Product decisions]] — what was chosen and why
 - [[Security review]] — findings from the adversarial review and their fixes
+- [[Pitfalls and fixes]] — bugs & process mistakes hit this milestone, root cause + fix, so we don't repeat them
 - [[VPS deployment]] — Ubuntu + nginx + HTTPS
 
 ## References (official docs)

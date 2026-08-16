@@ -72,6 +72,14 @@ Backend: `/api/pair/start` now returns a single-use `link_nonce` (on the Pairing
 
 Reused all of `pairing.py` (FCM register + Expo + MCS listener) and `verify.py` unchanged.
 
+## Follow-up 4 — event-loop fix, pairing-only, UX polish
+
+- **The "No response received" bug (biggest of the session).** With pairing working, created alarms connected then showed **error** forever. Root cause: [[rustplus]] schedules `handle_message` on `get_event_loop_policy().get_event_loop()`, which under uvicorn is a non-running loop → responses never dispatch → 5 s timeout every poll. Fix: one line in `saas/app.py` lifespan — `asyncio.set_event_loop(asyncio.get_running_loop())`. A one-shot `asyncio.run` script worked, which is why it looked like flakiness. Full write-up in [[Pitfalls and fixes]] and [[rustplus]].
+- **Pairing-only (manual paste removed).** Superseding follow-up 2/3: the manual-paste box is gone. The four connection fields are read-only, and `create_alarm` pulls ip/port/player_token/entity_id from the user's live pairing session server-side, ignoring the client — so crafted credentials can't be posted to the API. Editing keeps the stored credentials. See [[Product decisions]].
+- **UX.** Wizard auto-advances when a step's data is detected; the extension closes the Facepunch popup after capture; the pair button hides once linked (its `.ghost` class beat the `hidden` attribute — [[Pitfalls and fixes]] #3) and the box turns green with "Cuenta vinculada".
+
+Later in the same milestone: [[Log/2026-08-16 — Custom alarm sounds]] and the self-hosted Font Awesome pass (see [[Subscription service]]). Every error and process mistake from this milestone is catalogued in [[Pitfalls and fixes]].
+
 ## References
 
 - [[Rust+ pairing]] — where these values come from, manual flow

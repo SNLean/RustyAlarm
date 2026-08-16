@@ -40,6 +40,9 @@ This shape is 6.x and differs from older versions. Pin to 6.x when reinstalling.
 > [!bug] Logging handler leak
 > It adds a new DEBUG `StreamHandler` to the `rustplus.py` logger on **every** `RustSocket()` construction. Building one per reconnect accumulates them without bound (memory + duplicated logs). `monitor.quiet_rustplus_logger()` clears them. Note the logger is named `rustplus.py`, not `rustplus`.
 
+> [!bug] Schedules its read-handlers on the wrong event loop under uvicorn
+> `ws.run_coroutine_non_blocking` does `asyncio.get_event_loop_policy().get_event_loop().create_task(...)` for both `run_proto_event` and — critically — `handle_message` (which matches responses to requests). Under [[FastAPI and Uvicorn|uvicorn]] that can resolve to a **non-running** loop, so `handle_message` never runs → every `send_and_get` times out after `RESPONSE_TIMEOUT` (5 s) → `get_entity_info()` returns `RustError("No response received")` and the alarm shows "error" forever, even though `connect()` succeeded. **Fix:** the SaaS lifespan pins it with `asyncio.set_event_loop(asyncio.get_running_loop())` at startup — do not remove that line. The desktop tool is immune (it runs the monitor via `asyncio.run()`, which already sets the thread's loop). Symptom: connects fine ("Conectado"), then only "No response received"; a one-shot script via `asyncio.run` works, so it looks like flakiness. The `run_proto_event was never awaited` warning spam is the same root cause and is harmless (we poll, we don't rely on broadcasts). Caught live; see [[Log/2026-08-15 — Native Rust+ pairing]].
+
 ## Pairing
 
 How to obtain the IDs the library needs: [[Rust+ pairing]].

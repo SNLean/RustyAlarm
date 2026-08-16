@@ -21,11 +21,19 @@ graph TD
         APP --> MON[saas/monitor.py]
         MON --> NOTIFY[saas/notify.py Discord]
         APP --> STEAM[saas/steam.py login]
+        APP --> PAIR[saas/pairing.py FCM + listener]
+        APP --> VERIFY[saas/verify.py live check]
+        APP --> SND[saas/sounds.py catalog]
+        EXT[extension/ RustyAlarm Link] -->|token + nonce| APP
     end
     CORE --> RP[rustplus]
     MON --> RP
-    class CORE,MON internal-link;
+    PAIR --> RP
+    VERIFY --> RP
+    class CORE,MON,PAIR,VERIFY internal-link;
 ```
+
+The **`extension/`** browser extension is the only path to fully-automatic pairing: it captures the Rust+ token that a hosted page can't and POSTs it to `/api/pair/link`. Why an extension is unavoidable: [[Rust+ pairing]].
 
 ## Desktop tool
 
@@ -49,4 +57,8 @@ HTML inputs are `type="text"`. Sending them as raw JSON numbers corrupts the val
 
 ## Library gotchas
 
-All documented in [[rustplus]]: `connect()` returns `False` (does not raise), `get_entity_info()` returns a `RustError` (does not raise), and it adds a log handler on every `RustSocket()`.
+All documented in [[rustplus]]: `connect()` returns `False` (does not raise), `get_entity_info()` returns a `RustError` (does not raise), it adds a log handler on every `RustSocket()`, and — the one that cost the most — under uvicorn it schedules its response handlers on a **non-running event loop**, so the SaaS pins the loop at startup or every poll returns "No response received".
+
+## Bugs and process mistakes
+
+The errors hit while building pairing/verification/sounds, each with root cause and fix, are catalogued in [[Pitfalls and fixes]] — read it before touching pairing, SSRF guards, uploads, the CSP, or writing any test that touches the database.

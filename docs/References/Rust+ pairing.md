@@ -20,17 +20,21 @@ Where the four server values + the alarm's entity ID (required by [[rustplus]] a
 | `IP` / `PORT` | Server pairing (Rust+ port, not the game port) | If the server changes |
 | `ALARM_ENTITY_ID` | **Device** pairing (the Smart Alarm) | **Every wipe** |
 
-## Easy method (Chrome extension)
+## How RustyAlarm does it (native, in the wizard)
 
-1. Install [RustPlus.py Link Companion](https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf) (the one the official docs recommend).
-2. Click the icon → sign in with Steam on Facepunch → it redirects to a credentials page.
-3. Leave "listen for notifications" open.
-4. In game: `Esc` → **Rust+** → **Pair with Server** → `ip`, `port`, `playerId`, `playerToken` arrive.
-5. Look at the Smart Alarm → **Pair** → `entityId` arrives.
+The [[Subscription service]] wizard captures all of this automatically — the user never types the values (manual entry was removed). Flow:
 
-## Terminal method (alternative)
+1. **Vincular con Rust+** → `POST /api/pair/start` registers FCM/Expo server-side (`saas/pairing.py`) and returns a single-use `link_nonce`; the panel opens the Facepunch Steam login in a popup.
+2. Our **`extension/`** ("RustyAlarm Link") defines the `ReactNativeWebView` bridge on the Facepunch page, captures the `{SteamId, Token}`, and POSTs it to `/api/pair/link` with the nonce. The backend registers the device and starts an MCS listener.
+3. In game: `Esc` → **Rust+** → **Pair with Server** → the notification arrives → the wizard fills ip/port/player_token and auto-advances.
+4. Look at the Smart Alarm → **Pair** → the `entityId` notification arrives → the wizard fills it.
 
-Requires Node.js:
+> [!important] Why a browser extension is required
+> After Steam login, Facepunch hands the token back via `window.ReactNativeWebView.postMessage({SteamId, Token})` — a native-app bridge. It **no longer** puts the token in a redirect URL, so a plain hosted page cannot read it (same-origin policy blocks injecting into the cross-origin popup); only a browser extension, the mobile app, or a `--disable-web-security` browser can. `companion-rust.facepunch.com/app?returnUrl=` does **not** return the token to your site (it 500s). This was verified against `rustplus.js` and the rustplus.py docs — full narrative in [[Pitfalls and fixes]].
+
+## Manual alternatives (not used by our wizard)
+
+The community [RustPlus.py Link Companion](https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf) extension or the terminal tool below produce the same pairing JSON, in case you need the raw values outside the app:
 
 ```bash
 npx @liamcottle/rustplus.js fcm-register    # Steam login, once
