@@ -450,6 +450,9 @@
 <script>
 // La extensión RustyAlarm Link (si está instalada) avisa "ready" por postMessage.
 let EXT_READY = false;
+// Cuenta ya vinculada antes (credenciales cacheadas en el server): arrancamos el
+// pairing sin pedir login. Lo trae /api/alarms.
+let PAIRING_CACHED = false;
 const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown","sound"];
 const STATUS_LABEL = {
   running: "Conectada", starting: "Conectando...", retrying: "Reintentando",
@@ -523,6 +526,13 @@ function openWizard(alarm) {
 
   renderStep();
   dlg.showModal();
+
+  // Si la cuenta ya está vinculada (credenciales cacheadas), arrancar el pairing
+  // solo: escucha directo sin pedir login ni mostrar el botón. Solo al crear.
+  if (wiz.mode === "create" && PAIRING_CACHED) {
+    pairSetActive(true);   // ocultar botón/intro ya, sin flash
+    pairStart();
+  }
 }
 function openEditorById(id) { openWizard(alarmsById[id]); }
 
@@ -765,9 +775,10 @@ async function pairStart(force) {
     pair.filledServer = pair.filledEntity = false;
     pair.notifiedListening = false;
     pairSetActive(true);
-    pairStatus(statusText, cls);   // pairPoll lo corrige al estado real en 2s
+    pairStatus(statusText, cls);   // pairPoll lo corrige al estado real
     clearInterval(pair.timer);
     pair.timer = setInterval(pairPoll, 2000);
+    pairPoll();                    // una vez ya, sin esperar el intervalo
   };
 
   // Ya vinculado antes: el server reusa las credenciales guardadas y escucha
@@ -779,6 +790,7 @@ async function pairStart(force) {
   // extensión puede leer.
   if (!EXT_READY) {
     send("/api/pair/cancel", "POST", {}).catch(() => {});
+    pairSetActive(false);   // restaurar el botón si lo habíamos pre-ocultado
     toast("Necesitás la extensión RustyAlarm Link para vincular por primera vez. Instalala y recargá la página.", "err");
     return;
   }
@@ -918,6 +930,7 @@ function cardHtml(a) {
 
 function render(data) {
   alarmsById = {};
+  PAIRING_CACHED = !!data.pairing_cached;
   // Disparo nuevo => sonar. Comparamos trigger_count contra lo último visto;
   // la primera vez solo inicializamos (no sonar por disparos históricos).
   data.alarms.forEach(a => {

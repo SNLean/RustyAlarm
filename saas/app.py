@@ -230,6 +230,9 @@ async def list_alarms(request: Request):
     return {
         "plan_active": bool(user["plan_active"]),
         "max_alarms": MAX_ALARMS,
+        # Ya vinculó la cuenta antes (credenciales cacheadas): el panel arranca
+        # el pairing sin pedir login otra vez.
+        "pairing_cached": pairing.has_fresh_creds(user["steam_id"]),
         "alarms": [alarm_to_client(r, states[r["id"]]) for r in rows],
     }
 

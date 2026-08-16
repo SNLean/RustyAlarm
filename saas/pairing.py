@@ -380,6 +380,13 @@ def login_url() -> str:
     return f"{COMPANION_URL}/login"
 
 
+def has_fresh_creds(steam_id: str) -> bool:
+    """True si el usuario ya tiene credenciales FCM guardadas y frescas: el panel
+    lo usa para arrancar el pairing sin pedir login de nuevo."""
+    row = db.get_pairing_creds(steam_id)
+    return bool(row and (time.time() - row["created_at"]) < REUSE_MAX_AGE)
+
+
 def session_credentials(session, steam_id: str):
     """Credenciales de conexion que salieron del pairing de ESTE usuario.
     Devuelve ``(creds, None)`` si la sesion tiene server + alarma pareados y son
