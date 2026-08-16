@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import db, pairing, sounds, steam, verify
@@ -59,6 +60,10 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+# Estaticos propios (Font Awesome self-hosteado; la CSP bloquea CDNs).
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"),
+          name="static")
 
 
 @app.middleware("http")
@@ -522,6 +527,11 @@ async def admin_upload_sound(request: Request):
         return JSONResponse({"error": "Solo admin"}, status_code=403)
     if not same_origin(request):
         return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    # Cortar por Content-Length ANTES de parsear el cuerpo: no bufferear un
+    # archivo gigante en memoria/disco solo para rechazarlo despues.
+    clen = request.headers.get("content-length", "")
+    if clen.isdigit() and int(clen) > sounds.MAX_BYTES + 8192:
+        return JSONResponse({"error": "El archivo supera los 2 MB"}, status_code=413)
     form = await request.form()
     upload = form.get("file")
     if upload is None or not hasattr(upload, "filename") or not upload.filename:
@@ -529,9 +539,11 @@ async def admin_upload_sound(request: Request):
     if Path(upload.filename).suffix.lower() not in sounds.ALLOWED_EXT:
         return JSONResponse({"error": "Formato no permitido (mp3, ogg o wav)"},
                             status_code=400)
+    if getattr(upload, "size", None) and upload.size > sounds.MAX_BYTES:
+        return JSONResponse({"error": "El archivo supera los 2 MB"}, status_code=413)
     data = await upload.read()
     if len(data) > sounds.MAX_BYTES:
-        return JSONResponse({"error": "El archivo supera los 2 MB"}, status_code=400)
+        return JSONResponse({"error": "El archivo supera los 2 MB"}, status_code=413)
     display = str(form.get("name") or "").strip() or Path(upload.filename).stem
     filename = sounds.upload_filename(display, upload.filename)
     try:

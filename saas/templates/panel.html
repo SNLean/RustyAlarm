@@ -227,7 +227,7 @@
   <a class="brand" href="/panel"><span class="signal rust"></span> RustyAlarm</a>
   <span class="muted mono" style="font-size:12px">{{ user.steam_id }}</span>
   <span class="spacer"></span>
-  <button class="ghost" id="btnSoundToggle" type="button" title="Sonido de las alarmas">🔊</button>
+  <button class="ghost" id="btnSoundToggle" type="button" title="Sonido de las alarmas"><i class="fas fa-volume-high"></i></button>
   {% if admin %}<a class="btn ghost" href="/admin">Admin</a>{% endif %}
   <form method="post" action="/logout" style="margin:0">
     <button class="ghost" type="submit">Salir</button>
@@ -267,7 +267,7 @@
 
       <!-- 0 · Bienvenida (solo primera alarma) -->
       <section class="step" data-step="welcome">
-        <h3>Vamos a conectar tu alarma 🔔</h3>
+        <h3>Vamos a conectar tu alarma <i class="fas fa-bell"></i></h3>
         <p class="lead">En unos pasos dejamos tu Smart Alarm de Rust avisando a Discord. Vas a necesitar sacar unos datos del juego; te guiamos en cada paso.</p>
         <ol class="welcome-steps">
           <li><span class="n">1</span><span class="t">Parear el <b>servidor</b> en Rust+<small>Te da IP, puerto y player token</small></span></li>
@@ -300,10 +300,10 @@
           <p class="desc" data-pair-intro>Logueá con Steam una vez y pareá en el juego; estos campos se completan solos.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
           <div class="pair-live" data-pair-steps hidden>
-            <div class="pair-done">✓ Cuenta vinculada</div>
+            <div class="pair-done"><i class="fas fa-check"></i> Cuenta vinculada</div>
             <ol>
               <li>Dejá esta ventana abierta.</li>
-              <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
+              <li>En el juego: <code>Esc</code> <i class="fas fa-arrow-right fa-xs"></i> <b>Rust+</b> <i class="fas fa-arrow-right fa-xs"></i> <b>Pair with Server</b>.</li>
             </ol>
           </div>
         </div>
@@ -341,7 +341,7 @@
           <p class="desc" data-pair-intro>Con la vinculación activa, pareá la alarma y el Entity ID aparece solo.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
           <div class="pair-live" data-pair-steps hidden>
-            <div class="pair-done">✓ Cuenta vinculada</div>
+            <div class="pair-done"><i class="fas fa-check"></i> Cuenta vinculada</div>
             <ol>
               <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
               <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
@@ -369,7 +369,7 @@
           <summary>¿Cómo creo un webhook?</summary>
           <ol>
             <li>En Discord, andá al canal donde querés el aviso.</li>
-            <li><b>Editar canal</b> → <b>Integraciones</b> → <b>Webhooks</b> → <b>Nuevo webhook</b>.</li>
+            <li><b>Editar canal</b> <i class="fas fa-arrow-right fa-xs"></i> <b>Integraciones</b> <i class="fas fa-arrow-right fa-xs"></i> <b>Webhooks</b> <i class="fas fa-arrow-right fa-xs"></i> <b>Nuevo webhook</b>.</li>
             <li><b>Copiar URL</b> del webhook y pegala acá.</li>
           </ol>
         </details>
@@ -394,7 +394,7 @@
           <div class="desc">Suena solo con la página abierta</div>
           <div class="sound-row">
             <select name="sound" id="soundSelect"></select>
-            <button type="button" class="ghost" id="btnPreviewSound">▶ Probar</button>
+            <button type="button" class="ghost" id="btnPreviewSound"><i class="fas fa-play"></i> Probar</button>
           </div>
           <div class="err"></div>
         </div>
@@ -591,7 +591,7 @@ async function runVerify() {
     vrf.busy = false;
   }
   if (mySeq !== vrf.seq) return;
-  if (r.ok) setVerify("ok", "Conecta y es una Smart Alarm ✓", false);
+  if (r.ok) setVerify("ok", "Conecta y es una Smart Alarm", false);
   else setVerify("bad", r.message || "La verificación falló", true);
 }
 
@@ -626,7 +626,7 @@ function buildSummary() {
     ["Servidor", `${esc(b.ip)}:${esc(b.port)}`, false],
     ["Player token", esc(b.player_token), false],
     ["Entity ID", esc(b.entity_id), false],
-    ["Discord", b.discord_webhook ? "configurado ✓" : "sin webhook — no avisa", !b.discord_webhook],
+    ["Discord", b.discord_webhook ? 'configurado <i class="fas fa-check"></i>' : "sin webhook — no avisa", !b.discord_webhook],
     ["Sonido", esc(soundName(b.sound)), false],
     ["Intervalo / Cooldown", `${esc(b.check_interval)}s / ${esc(b.cooldown)}s`, false],
   ];
@@ -691,7 +691,7 @@ async function testHook() {
       name: fieldEl("name").value.trim() || "tu alarma",
       server: `${fieldEl("ip").value.trim()}:${fieldEl("port").value.trim()}`,
     });
-    res.className = "res ok"; res.textContent = "Enviado ✓ — mirá tu Discord";
+    res.className = "res ok"; res.textContent = "Enviado — mirá tu Discord";
   } catch (err) {
     res.className = "res bad"; res.textContent = err.message;
   } finally {
@@ -738,7 +738,7 @@ function pairSetActive(active) {
   });
 }
 
-// Estado "vinculado y escuchando": muestra el ✓ y los pasos del juego.
+// Estado "vinculado y escuchando": muestra el check y los pasos del juego.
 function pairShowSteps(show) {
   pairBoxes().forEach(box => {
     box.classList.toggle("linked", show);
@@ -781,7 +781,7 @@ window.addEventListener("message", (e) => {
     EXT_READY = true;
     pairBoxes().forEach(box => {
       const st = box.querySelector("[data-pair-status]");
-      if (st && !st.textContent.trim()) st.textContent = "Extensión detectada ✓";
+      if (st && !st.textContent.trim()) st.textContent = "Extensión detectada";
     });
   }
 });
@@ -798,7 +798,7 @@ async function pairPoll() {
   else if (s.state === "listening") {
     if (!pair.notifiedListening) {
       pair.notifiedListening = true;
-      toast("Cuenta vinculada ✓ — ahora pareá en el juego (podés cerrar la ventana de Steam)", "ok");
+      toast("Cuenta vinculada — ahora pareá en el juego (podés cerrar la ventana de Steam)", "ok");
     }
     pairShowSteps(true);
     pairStatus(pair.filledServer && !pair.filledEntity
@@ -834,7 +834,7 @@ async function pairPoll() {
 }
 
 // Al detectarse los datos de un paso, saltar solo al siguiente. Breve demora
-// para que se vea "detectado ✓", y sin pisar al usuario si ya se movió a mano.
+// para que se vea "detectado", y sin pisar al usuario si ya se movió a mano.
 function autoAdvanceFrom(step) {
   if (wiz.steps[wiz.index] !== step) return;
   setTimeout(() => {
@@ -1006,7 +1006,7 @@ function playSound(file) {
 
 function updateSoundToggle() {
   const b = $("btnSoundToggle");
-  if (b) { b.textContent = soundOn ? "🔊" : "🔇"; b.title = soundOn ? "Sonido activado" : "Sonido silenciado"; }
+  if (b) { b.innerHTML = soundOn ? '<i class="fas fa-volume-high"></i>' : '<i class="fas fa-volume-xmark"></i>'; b.title = soundOn ? "Sonido activado" : "Sonido silenciado"; }
 }
 $("btnSoundToggle").addEventListener("click", () => {
   soundOn = !soundOn;

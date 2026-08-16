@@ -119,7 +119,7 @@ async function loadSounds() {
     const d = await api("/api/sounds");
     const rows = (d.sounds || []).map(s => `
       <tr>
-        <td>${esc(s.name)} <button class="ghost btn-mini" onclick="previewSound('${esc(s.file)}')">▶</button></td>
+        <td>${esc(s.name)} <button class="ghost btn-mini" onclick="previewSound('${esc(s.file)}')"><i class="fas fa-play"></i></button></td>
         <td class="mono">${esc(s.file)}</td>
         <td>${s.builtin ? "de fábrica" : "subido"}</td>
         <td class="act">${s.builtin ? "" : `<button class="danger ghost" onclick="deleteSound('${esc(s.file)}')">Borrar</button>`}</td>
@@ -149,7 +149,7 @@ document.getElementById("soundForm").addEventListener("submit", async e => {
     const res = await fetch("/api/admin/sounds", { method: "POST", body: fd });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    toast("Sonido subido ✓", "ok");
+    toast("Sonido subido", "ok");
     e.target.reset(); loadSounds();
   } catch (err) { toast(err.message, "error"); }
 });
