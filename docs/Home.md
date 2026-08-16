@@ -45,6 +45,7 @@ A service that watches a Rust (the game) **Smart Alarm** through the Rust+ API a
 - [[Log/2026-08-15 — Guided alarm wizard]]
 - [[Log/2026-08-15 — Frontend redesign]]
 - [[Log/2026-08-15 — README and official docs]]
+- [[Log/2026-08-15 — Security audit and fixes]]
 
 ## Meta
 

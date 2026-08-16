@@ -58,6 +58,8 @@
 
 {% block script %}
 <script>
+const ESC = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+function esc(v) { return String(v ?? "").replace(/[&<>"']/g, c => ESC[c]); }
 function dateOf(s) { return new Date(s * 1000).toLocaleDateString("es"); }
 
 async function refresh() {
@@ -65,12 +67,12 @@ async function refresh() {
     const data = await api("/api/admin/users");
     const rows = data.users.map(u => `
       <tr>
-        <td class="mono">${u.steam_id}</td>
+        <td class="mono">${esc(u.steam_id)}</td>
         <td class="mono">${dateOf(u.created_at)}</td>
-        <td class="num">${u.alarm_count}</td>
-        <td>${u.plan}</td>
+        <td class="num">${Number(u.alarm_count) || 0}</td>
+        <td>${esc(u.plan)}</td>
         <td><span class="state ${u.plan_active ? "on" : "off"}"><span class="dot"></span>${u.plan_active ? "Activo" : "Pausado"}</span></td>
-        <td class="act"><button onclick="toggleUser('${u.steam_id}')">${u.plan_active ? "Pausar" : "Activar"}</button></td>
+        <td class="act"><button onclick="toggleUser('${esc(u.steam_id)}')">${u.plan_active ? "Pausar" : "Activar"}</button></td>
       </tr>`).join("");
     document.getElementById("rows").innerHTML = rows ||
       `<tr class="empty-row"><td colspan="6">Todavía no hay usuarios.</td></tr>`;

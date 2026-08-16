@@ -59,6 +59,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        # Endurecimiento del panel local (clickjacking / sniffing).
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; style-src 'self' 'unsafe-inline';"
+            " script-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            " frame-ancestors 'none'; base-uri 'none'",
+        )
         self.end_headers()
         self.wfile.write(data)
 
@@ -75,6 +85,22 @@ class Handler(BaseHTTPRequestHandler):
         """Rechaza peticiones con Host ajeno (proteccion DNS rebinding)."""
         host = (self.headers.get("Host") or "").split(":")[0].strip("[]")
         return host in ("127.0.0.1", "localhost", "::1", "")
+
+    def _csrf_ok(self):
+        """Bloquea CSRF cross-site contra el panel local. El check de Host no
+        alcanza: una web maliciosa puede mandar un POST 'simple' (text/plain,
+        sin preflight) a 127.0.0.1:8765. Exigir application/json fuerza el
+        preflight de CORS (que no respondemos) y validamos el Origin si viene."""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+        if ctype != "application/json":
+            return False
+        origin = self.headers.get("Origin")
+        if origin:
+            port = self.server.server_address[1]
+            allowed = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+            if origin not in allowed:
+                return False
+        return True
 
     def _state(self, since=0):
         wav = sound_path()
@@ -113,6 +139,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._host_ok():
             return self._send(403, {"error": "Host no permitido"})
+        if not self._csrf_ok():
+            return self._send(403, {"error": "Solicitud cross-site rechazada"})
         path = urlparse(self.path).path
 
         try:

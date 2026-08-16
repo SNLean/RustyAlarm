@@ -5,6 +5,8 @@ sobra. Las corutinas del monitor escriben via asyncio.to_thread para no
 bloquear el event loop.
 """
 
+import hashlib
+import ipaddress
 import math
 import secrets
 import sqlite3
@@ -123,12 +125,18 @@ def set_plan_active(steam_id: str, active: bool):
 
 # ================= SESIONES =================
 
+def _hash_token(token: str) -> str:
+    """La cookie lleva el token en claro; la base guarda solo su hash, asi un
+    volcado de la DB no da sesiones usables."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def create_session(steam_id: str) -> str:
     token = secrets.token_urlsafe(32)
     now = time.time()
     _run(
         "INSERT INTO sessions (token, steam_id, created_at, expires_at) VALUES (?,?,?,?)",
-        (token, steam_id, now, now + SESSION_DAYS * 86400),
+        (_hash_token(token), steam_id, now, now + SESSION_DAYS * 86400),
     )
     # higiene: borrar sesiones vencidas de paso
     _run("DELETE FROM sessions WHERE expires_at < ?", (now,))
@@ -141,14 +149,14 @@ def user_by_session(token: str):
     row = _run(
         "SELECT u.* FROM sessions s JOIN users u ON u.steam_id = s.steam_id"
         " WHERE s.token=? AND s.expires_at > ?",
-        (token, time.time()),
+        (_hash_token(token), time.time()),
         fetch="one",
     )
     return row
 
 
 def delete_session(token: str):
-    _run("DELETE FROM sessions WHERE token=?", (token,))
+    _run("DELETE FROM sessions WHERE token=?", (_hash_token(token),))
 
 
 # ================= ALARMAS =================
@@ -171,6 +179,22 @@ def is_discord_webhook(url: str) -> bool:
     return bool(url) and url.startswith(_WEBHOOK_PREFIXES)
 
 
+def is_blocked_host(host: str) -> bool:
+    """SSRF: el monitor abre un socket al host que ponga el usuario. Los
+    servidores de Rust son publicos, asi que bloqueamos privadas/loopback/
+    link-local/metadata para que nadie apunte a la red interna del VPS."""
+    h = host.strip().lower().rstrip(".")
+    if h in ("", "localhost", "0.0.0.0", "::", "ip6-localhost"):
+        return True
+    try:
+        addr = ipaddress.ip_address(h)
+    except ValueError:
+        # Es un hostname; no resolvemos DNS aca. Cortamos sufijos internos obvios.
+        return h.endswith(".local") or h.endswith(".internal")
+    return (addr.is_private or addr.is_loopback or addr.is_link_local
+            or addr.is_reserved or addr.is_unspecified or addr.is_multicast)
+
+
 def validate_alarm(data: dict) -> dict:
     """Normaliza el payload del formulario. Todos los errores juntos."""
     errors = {}
@@ -189,6 +213,8 @@ def validate_alarm(data: dict) -> dict:
     elif any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
              for c in ip):
         errors["ip"] = "IP o dominio invalido"
+    elif is_blocked_host(ip):
+        errors["ip"] = "IP privada o local no permitida"
     clean["ip"] = ip
 
     port = str(data.get("port", "")).strip()

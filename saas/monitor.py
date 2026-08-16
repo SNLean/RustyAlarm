@@ -209,8 +209,9 @@ class AlarmRunner:
                 server=f"{self.row['ip']}:{self.row['port']}",
             )
             self.log("ok", "Aviso enviado a Discord")
-        except Exception as exc:
-            self.log("error", f"Discord rechazo el aviso: {exc}")
+        except Exception:
+            # El exc puede traer la URL del webhook (secreto): no lo logueamos.
+            self.log("error", "Discord rechazo el aviso")
 
 
 class Manager:

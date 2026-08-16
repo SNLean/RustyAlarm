@@ -3,6 +3,7 @@
 Arranque: python -m saas
 """
 
+import logging
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,8 +23,18 @@ OAUTH_STATE_COOKIE = "rustalarm_oauth_state"
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
+SECURE_COOKIES = BASE_URL.startswith("https://")
+
+
 @asynccontextmanager
 async def lifespan(app):
+    # Aviso de config: en un dominio real BASE_URL tiene que ser https, si no
+    # las cookies viajan sin Secure y el retorno de Steam falla.
+    host = urlparse(BASE_URL).hostname or ""
+    if not SECURE_COOKIES and host not in ("127.0.0.1", "localhost", "::1"):
+        logging.getLogger("rustalarm").warning(
+            "RUSTALARM_BASE_URL=%s no es https y no es local: las cookies NO "
+            "seran Secure. En produccion usa https://tu-dominio.", BASE_URL)
     db.connect()
     await manager.start()
     yield
@@ -31,8 +42,6 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-
-SECURE_COOKIES = BASE_URL.startswith("https://")
 
 
 @app.middleware("http")
@@ -286,8 +295,9 @@ async def test_webhook(alarm_id: int, request: Request):
             server=f"{row['ip']}:{row['port']}",
             test=True,
         )
-    except Exception as exc:
-        return JSONResponse({"error": f"Discord rechazo: {exc}"}, status_code=400)
+    except Exception:
+        # No devolver el exc: puede contener la URL del webhook (secreto).
+        return JSONResponse({"error": "Discord rechazo el envio"}, status_code=400)
     return {"ok": True}
 
 
@@ -305,12 +315,13 @@ async def test_webhook_url(request: Request):
     if not db.is_discord_webhook(webhook):
         return JSONResponse({"error": "URL de webhook de Discord invalida"},
                             status_code=400)
-    name = str(data.get("name") or "").strip() or "tu alarma"
-    server = str(data.get("server") or "").strip() or "—"
+    name = (str(data.get("name") or "").strip() or "tu alarma")[:60]
+    server = (str(data.get("server") or "").strip() or "—")[:100]
     try:
         await send_discord(webhook, alarm_name=name, server=server, test=True)
-    except Exception as exc:
-        return JSONResponse({"error": f"Discord rechazo: {exc}"}, status_code=400)
+    except Exception:
+        # No devolver el exc: puede contener la URL del webhook (secreto).
+        return JSONResponse({"error": "Discord rechazo el envio"}, status_code=400)
     return {"ok": True}
 
 

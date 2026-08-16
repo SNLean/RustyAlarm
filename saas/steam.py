@@ -55,6 +55,10 @@ async def verify(query_params) -> str | None:
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(STEAM_OPENID, data=params)
 
-    if response.status_code == 200 and "is_valid:true" in response.text:
-        return steam_id
+    # Match exacto de la linea 'is_valid:true' (el body de check_authentication
+    # es key:value por linea), no un substring suelto.
+    if response.status_code == 200:
+        lines = {ln.strip() for ln in response.text.splitlines()}
+        if "is_valid:true" in lines:
+            return steam_id
     return None

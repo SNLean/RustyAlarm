@@ -167,7 +167,8 @@ def save_config(data, path=None):
     """Valida y escribe config.json de forma atomica."""
     clean = validate_config(data)
     path = Path(path or CONFIG_PATH)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    # Temp unico por proceso: dos guardados concurrentes no se pisan el .tmp.
+    tmp = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=2, ensure_ascii=False)
         f.write("\n")
