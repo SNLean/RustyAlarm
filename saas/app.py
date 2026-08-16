@@ -5,6 +5,7 @@ Arranque: python -m saas
 
 import logging
 import secrets
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
@@ -13,12 +14,21 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from . import db, steam
+from . import db, pairing, steam, verify
 from .config import ADMIN_STEAM_ID, BASE_URL, MAX_ALARMS, SESSION_COOKIE, SESSION_DAYS
 from .monitor import manager
 from .notify import send_discord
 
 OAUTH_STATE_COOKIE = "rustalarm_oauth_state"
+PAIR_STATE_COOKIE = "rustalarm_pair_state"
+
+# Rate limit de la verificacion en vivo: cada verify abre una conexion saliente
+# a un ip:port que elige el usuario. Sin freno seria un escaner de puertos a
+# pedido. En memoria alcanza: el servicio corre en un solo worker.
+VERIFY_MIN_GAP = 4.0          # seg minimos entre verify del mismo usuario
+VERIFY_MAX_CONCURRENT = 4     # verify en vuelo en todo el proceso
+_verify_last: dict[str, float] = {}
+_verify_inflight: set[str] = set()
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -133,6 +143,10 @@ async def panel(request: Request):
         "user": dict(user),
         "admin": is_admin(user),
         "max_alarms": MAX_ALARMS,
+        # El pairing automatico necesita que Facepunch pueda devolver el token a
+        # nuestro /pair/callback, y eso solo pasa con un callback HTTPS publico
+        # (no http/localhost). En local la via es pegar los datos a mano.
+        "auto_pairing": SECURE_COOKIES,
     })
 
 
@@ -323,6 +337,154 @@ async def test_webhook_url(request: Request):
         # No devolver el exc: puede contener la URL del webhook (secreto).
         return JSONResponse({"error": "Discord rechazo el envio"}, status_code=400)
     return {"ok": True}
+
+
+# ================= API PAIRING RUST+ =================
+
+@app.post("/api/pair/start")
+async def pair_start(request: Request):
+    """Prepara la vinculacion: registra FCM/Expo y devuelve la URL de login
+    de Facepunch. El wizard abre esa URL en otra pestana."""
+    user = current_user(request)
+    if user is None:
+        return need_login()
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    # Sin HTTPS publico, Facepunch no puede devolver el token a /pair/callback:
+    # el flujo quedaria colgado. Cortar aca y mandar a la via manual.
+    if not SECURE_COOKIES:
+        return JSONResponse(
+            {"error": "El pairing automatico necesita el sitio publicado en HTTPS."
+                      " En local, pega los datos de vinculacion a mano.",
+             "manual": True},
+            status_code=400)
+    try:
+        session = await pairing.pairing_manager.start(user["steam_id"])
+    except pairing.PairingError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+    response = JSONResponse({"ok": True, "login_url": pairing.login_url(BASE_URL)})
+    response.set_cookie(
+        PAIR_STATE_COOKIE, session.csrf,
+        max_age=pairing.WAIT_LOGIN_TTL,
+        httponly=True, samesite="lax", secure=SECURE_COOKIES,
+    )
+    return response
+
+
+@app.get("/pair/callback")
+async def pair_callback(request: Request):
+    """Retorno del login de Facepunch con ?token=<AuthToken>. El token es un
+    secreto: se usa para registrar el dispositivo y se descarta. No loguearlo."""
+    user = current_user(request)
+    if user is None:
+        return RedirectResponse("/", status_code=302)
+    session = pairing.pairing_manager.get(user["steam_id"])
+    cookie_state = request.cookies.get(PAIR_STATE_COOKIE, "")
+    if (session is None or session.state != "waiting_login" or not cookie_state
+            or not secrets.compare_digest(cookie_state, session.csrf)):
+        return HTMLResponse(
+            "Vinculacion expirada. Volve al panel y proba de nuevo.",
+            status_code=400)
+    token = request.query_params.get("token", "")
+    if not token:
+        return HTMLResponse(
+            "Facepunch no devolvio el token. Volve al panel y proba de nuevo.",
+            status_code=400)
+    try:
+        await pairing.pairing_manager.activate(session, token)
+    except pairing.PairingError as exc:
+        return HTMLResponse(str(exc), status_code=502)
+    response = HTMLResponse(
+        "<!doctype html><meta charset='utf-8'><title>RustyAlarm</title>"
+        "<body style='background:#17130f;color:#e8ddcf;font-family:sans-serif;"
+        "display:grid;place-items:center;height:100vh;margin:0'><div>"
+        "<h2>Cuenta vinculada ✔</h2>"
+        "<p>Volve a la pestana del panel y segui con el asistente.<br>"
+        "Podes cerrar esta ventana.</p></div>"
+        "<script>setTimeout(()=>window.close(),1500)</script></body>")
+    response.delete_cookie(PAIR_STATE_COOKIE)
+    return response
+
+
+@app.get("/api/pair/status")
+async def pair_status(request: Request):
+    user = current_user(request)
+    if user is None:
+        return need_login()
+    session = pairing.pairing_manager.get(user["steam_id"])
+    if session is None:
+        return {"state": "none"}
+    with session.lock:
+        server = dict(session.server) if session.server else None
+        entity = dict(session.entity) if session.entity else None
+        out = {"state": session.state, "error": session.error,
+               "server": server, "entity": entity}
+    # Si logueo otra cuenta Steam en Facepunch, el playerToken no va a servir
+    # para su steam_id: avisar en vez de dejar una alarma que nunca conecta.
+    paired_id = (server or entity or {}).get("player_id")
+    out["steam_mismatch"] = bool(paired_id and paired_id != user["steam_id"])
+    return out
+
+
+@app.post("/api/pair/cancel")
+async def pair_cancel(request: Request):
+    user = current_user(request)
+    if user is None:
+        return need_login()
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    pairing.pairing_manager.cancel(user["steam_id"])
+    return {"ok": True}
+
+
+@app.post("/api/pair/verify")
+async def pair_verify(request: Request):
+    """Verificacion en vivo antes de crear la alarma: conecta con los datos
+    obtenidos y confirma que el Entity ID es una Smart Alarm alcanzable.
+    El player_token se usa para conectar y no vuelve nunca al cliente."""
+    user = current_user(request)
+    if user is None:
+        return need_login()
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+
+    data = await read_json(request)
+    try:
+        clean = db.validate_connection(data)   # aplica SSRF (is_blocked_host) + rangos
+    except db.ValidationError as exc:
+        return JSONResponse(
+            {"error": "Revisa los campos", "errors": exc.errors}, status_code=400
+        )
+
+    steam_id = user["steam_id"]
+    now = time.monotonic()
+    if steam_id in _verify_inflight:
+        return JSONResponse({"error": "Ya hay una verificacion en curso"},
+                            status_code=429)
+    if now - _verify_last.get(steam_id, 0.0) < VERIFY_MIN_GAP:
+        return JSONResponse({"error": "Espera unos segundos e intenta de nuevo"},
+                            status_code=429)
+    if len(_verify_inflight) >= VERIFY_MAX_CONCURRENT:
+        return JSONResponse({"error": "Hay muchas verificaciones en curso"},
+                            status_code=503)
+
+    _verify_inflight.add(steam_id)
+    try:
+        result = await verify.verify_alarm(
+            ip=clean["ip"], port=clean["port"], steam_id=steam_id,
+            player_token=clean["player_token"], entity_id=clean["entity_id"],
+        )
+    finally:
+        _verify_inflight.discard(steam_id)
+        done = time.monotonic()
+        _verify_last[steam_id] = done
+        # Podar entradas ya sin efecto (mas viejas que el gap): el dict no
+        # crece sin techo con la cantidad de usuarios distintos.
+        for sid in [s for s, t in _verify_last.items()
+                    if done - t >= VERIFY_MIN_GAP and s != steam_id]:
+            _verify_last.pop(sid, None)
+
+    return result
 
 
 # ================= API ADMIN =================

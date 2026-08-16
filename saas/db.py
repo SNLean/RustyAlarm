@@ -179,30 +179,50 @@ def is_discord_webhook(url: str) -> bool:
     return bool(url) and url.startswith(_WEBHOOK_PREFIXES)
 
 
+def _looks_like_numeric_host(h: str) -> bool:
+    """Formas numericas empaquetadas de una IP que ipaddress.ip_address() NO
+    parsea pero glibc getaddrinfo SI resuelve (a loopback/privadas): decimal
+    suelto (2130706433 = 127.0.0.1), hex (0x7f000001), octal por segmento
+    (0177.0.0.1). Un hostname real siempre tiene alguna letra en su TLD."""
+    if h.startswith(("0x", "0X")):
+        return True
+    labels = [lbl for lbl in h.split(".") if lbl]
+    if labels and all(lbl.isdigit() for lbl in labels):
+        return True  # solo digitos y puntos: no es un hostname, es una IP disfrazada
+    for lbl in labels:
+        if len(lbl) > 1 and lbl[0] == "0" and lbl.isdigit():
+            return True  # segmento con cero a la izquierda: octal
+    return False
+
+
 def is_blocked_host(host: str) -> bool:
     """SSRF: el monitor abre un socket al host que ponga el usuario. Los
     servidores de Rust son publicos, asi que bloqueamos privadas/loopback/
-    link-local/metadata para que nadie apunte a la red interna del VPS."""
+    link-local/metadata para que nadie apunte a la red interna del VPS.
+
+    Ojo: esto NO resuelve DNS, asi que un hostname publico cuyo registro A
+    apunte a una IP interna igual pasa. La verificacion en vivo (verify.py)
+    resuelve y re-chequea cada IP antes de conectar; el monitor (crear alarma)
+    conserva ese hueco de rebind -> hardening pendiente (ver docs)."""
     h = host.strip().lower().rstrip(".")
     if h in ("", "localhost", "0.0.0.0", "::", "ip6-localhost"):
         return True
     try:
         addr = ipaddress.ip_address(h)
     except ValueError:
-        # Es un hostname; no resolvemos DNS aca. Cortamos sufijos internos obvios.
-        return h.endswith(".local") or h.endswith(".internal")
+        # Es un hostname (o una IP en notacion rara). Cortamos las numericas
+        # empaquetadas y los sufijos internos obvios.
+        return (_looks_like_numeric_host(h)
+                or h.endswith(".local") or h.endswith(".internal"))
     return (addr.is_private or addr.is_loopback or addr.is_link_local
             or addr.is_reserved or addr.is_unspecified or addr.is_multicast)
 
 
-def validate_alarm(data: dict) -> dict:
-    """Normaliza el payload del formulario. Todos los errores juntos."""
-    errors = {}
-    clean = {}
-
-    name = str(data.get("name", "")).strip() or "Mi alarma"
-    clean["name"] = name[:60]
-
+def _validate_connection_fields(data: dict, errors: dict, clean: dict) -> None:
+    """Valida ip/port/player_token/entity_id (lo que hace falta para conectar
+    al Companion Server). Muta ``errors``/``clean``. Lo comparten el alta de
+    alarma y la verificacion en vivo, asi ambas aplican identicas reglas de
+    SSRF y de rango."""
     ip = str(data.get("ip", "")).strip()
     if not ip:
         errors["ip"] = "Requerido"
@@ -240,6 +260,26 @@ def validate_alarm(data: dict) -> dict:
             errors[field] = f"{label} debe ser un numero entero" + (
                 "" if allow_negative else " mayor que 0"
             )
+
+
+def validate_connection(data: dict) -> dict:
+    """Valida solo los datos de conexion (para la verificacion en vivo)."""
+    errors, clean = {}, {}
+    _validate_connection_fields(data, errors, clean)
+    if errors:
+        raise ValidationError(errors)
+    return clean
+
+
+def validate_alarm(data: dict) -> dict:
+    """Normaliza el payload del formulario. Todos los errores juntos."""
+    errors = {}
+    clean = {}
+
+    name = str(data.get("name", "")).strip() or "Mi alarma"
+    clean["name"] = name[:60]
+
+    _validate_connection_fields(data, errors, clean)
 
     for field, minimum, maximum in (
         ("check_interval", 2, 3600),

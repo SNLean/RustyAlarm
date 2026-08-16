@@ -158,10 +158,62 @@
     border-radius: 8px; padding: 11px 14px; font-size: 13px; margin-top: 4px; }
   .req b { color: var(--warn); }
 
+  .pairbox {
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 8px; background: var(--panel-2); padding: 12px 14px;
+    margin: 4px 0 14px;
+  }
+  .pairbox .pair-head { display: flex; align-items: center; gap: 10px; }
+  .pairbox .pair-head b { font-size: 13px; }
+  .pairbox .pair-status { font-size: 12px; margin-left: auto; color: var(--muted); }
+  .pairbox .pair-status.listen { color: var(--ok); }
+  .pairbox .pair-status.warn { color: var(--warn); }
+  .pairbox .pair-status.bad { color: var(--accent-soft); }
+  .pairbox p.desc { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
+  .pairbox ol { margin: 8px 0 2px; padding-left: 20px; font-size: 13px; }
+  .pairbox ol li { margin-bottom: 6px; }
+  .pairbox code {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font: 12px Consolas, monospace;
+  }
+  .pair-manual { margin-top: 10px; }
+  .pair-manual > summary {
+    cursor: pointer; font-size: 12px; font-weight: 600; color: var(--accent-soft);
+    list-style: none;
+  }
+  .pair-manual > summary::before { content: "▸ "; }
+  .pair-manual[open] > summary::before { content: "▾ "; }
+  .pair-manual textarea {
+    width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    font: 12px Consolas, monospace; resize: vertical;
+  }
+  .pair-manual textarea:focus { outline: none; border-color: var(--accent-soft); }
+
   .test-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
   .test-row .res { font-size: 13px; }
   .test-row .res.ok { color: var(--ok); }
   .test-row .res.bad { color: var(--accent-soft); }
+
+  .verifybox {
+    display: flex; align-items: center; gap: 10px; margin-top: 12px;
+    padding: 10px 14px; border-radius: 8px; font-size: 13px;
+    border: 1px solid var(--line); background: var(--panel-2);
+  }
+  .verifybox .v-dot {
+    flex: none; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .verifybox .v-text { flex: 1; }
+  .verifybox #btnReverify { padding: 5px 10px; font-size: 12px; }
+  .verifybox[data-state="checking"] .v-dot { background: var(--warn); animation: vpulse 1s ease-in-out infinite; }
+  .verifybox[data-state="ok"] { border-color: var(--ok); }
+  .verifybox[data-state="ok"] .v-dot { background: var(--ok); box-shadow: 0 0 7px var(--ok); }
+  .verifybox[data-state="ok"] .v-text { color: var(--ok); }
+  .verifybox[data-state="bad"] { border-color: var(--accent); border-left: 3px solid var(--accent); }
+  .verifybox[data-state="bad"] .v-dot { background: var(--accent); }
+  .verifybox[data-state="bad"] .v-text { color: var(--accent-soft); }
+  @keyframes vpulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
   .summary-list { margin: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .summary-list .r { display: flex; justify-content: space-between; gap: 12px;
@@ -242,8 +294,30 @@
       <section class="step" data-step="server">
         <h3>Datos del servidor</h3>
         <p class="lead">Estos tres salen de <b>parear el servidor</b> desde Rust+.</p>
+        <div class="pairbox" data-pair>
+          <div class="pair-head">
+            <b>Vinculación automática</b>
+            <span class="pair-status" data-pair-status>&nbsp;</span>
+          </div>
+          <p class="desc">Logueá con Steam una vez, pareá en el juego y estos campos se completan solos.</p>
+          <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
+          <ol data-pair-steps hidden>
+            <li>Dejá esta ventana abierta.</li>
+            <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
+          </ol>
+          <details class="pair-manual">
+            <summary>o pegá los datos de vinculación</summary>
+            <p class="desc">Pegá el JSON del pairing (el bloque con <code>ip</code>, <code>port</code>, <code>playerToken</code>; o el de la alarma con <code>entityId</code>).</p>
+            <textarea data-paste-box rows="4" spellcheck="false" placeholder='{"ip":"200.40.131.36","port":"28082","playerId":"7656...","playerToken":"-52960231"}'></textarea>
+            <div class="test-row">
+              <button type="button" class="ghost" data-paste-btn>Rellenar con esto</button>
+              <span class="res" data-paste-res></span>
+            </div>
+          </details>
+        </div>
         <details class="guide">
-          <summary>¿De dónde saco estos datos?</summary>
+          <summary>¿Preferís copiar los datos a mano?</summary>
+          <p class="desc" style="margin:6px 0 8px">Con la vinculación automática no necesitás nada de esto. Si igual querés hacerlo manual:</p>
           <ol>
             <li>Instalá la extensión <a href="https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf" target="_blank" rel="noopener">RustPlus.py Link Companion</a> y hacé login con Steam. Dejá "listen for notifications" abierto.</li>
             <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
@@ -279,8 +353,29 @@
       <section class="step" data-step="alarm">
         <h3>La alarma</h3>
         <p class="lead">El Entity ID identifica esa Smart Alarm puntual.</p>
+        <div class="pairbox" data-pair>
+          <div class="pair-head">
+            <b>Vinculación automática</b>
+            <span class="pair-status" data-pair-status>&nbsp;</span>
+          </div>
+          <p class="desc">Con la vinculación activa, pareá la alarma y el Entity ID se completa solo.</p>
+          <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
+          <ol data-pair-steps hidden>
+            <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
+            <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
+          </ol>
+          <details class="pair-manual">
+            <summary>o pegá los datos de la alarma</summary>
+            <p class="desc">Pegá el JSON del pairing de la alarma (el que trae <code>entityId</code>).</p>
+            <textarea data-paste-box rows="3" spellcheck="false" placeholder='{"entityId":"12345","entityType":"2"}'></textarea>
+            <div class="test-row">
+              <button type="button" class="ghost" data-paste-btn>Rellenar con esto</button>
+              <span class="res" data-paste-res></span>
+            </div>
+          </details>
+        </div>
         <details class="guide">
-          <summary>¿Cómo consigo el Entity ID?</summary>
+          <summary>¿Preferís conseguirlo a mano?</summary>
           <ol>
             <li>Con el listener del paso anterior abierto, andá al juego y <b>mirá la Smart Alarm</b>.</li>
             <li>Aparece la opción <b>Pair</b> sobre el dispositivo: activala.</li>
@@ -347,6 +442,11 @@
         <h3>Revisá y confirmá</h3>
         <p class="lead">Si algo no está bien, volvé con <b>Atrás</b>.</p>
         <div class="summary-list" id="summaryList"></div>
+        <div class="verifybox" id="verifyBox" data-state="idle">
+          <span class="v-dot"></span>
+          <span class="v-text" id="verifyText">Verificando la conexión con el servidor…</span>
+          <button type="button" class="ghost" id="btnReverify" hidden>Reintentar</button>
+        </div>
         <p class="desc" style="margin-top:12px">Después de crearla, la alarma queda <b>activa</b> y el servidor la monitorea 24/7. No hace falta que dejes nada abierto.</p>
       </section>
 
@@ -363,6 +463,8 @@
 
 {% block script %}
 <script>
+const USER_STEAM_ID = "{{ user.steam_id }}";
+const AUTO_PAIRING = {{ 'true' if auto_pairing else 'false' }};
 const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown"];
 const STATUS_LABEL = {
   running: "Conectada", starting: "Conectando...", retrying: "Reintentando",
@@ -406,6 +508,10 @@ function setFieldError(name, msg) {
   wrap.classList.add("invalid");
   wrap.querySelector(".err").textContent = msg;
 }
+function clearFieldError(name) {
+  const wrap = wrapOf(name);
+  if (wrap) wrap.classList.remove("invalid");
+}
 
 function openWizard(alarm) {
   wiz.mode = alarm ? "edit" : "create";
@@ -421,6 +527,7 @@ function openWizard(alarm) {
   FIELDS.forEach(name => { fieldEl(name).value = alarm ? (alarm[name] ?? "") : ""; });
   if (!alarm) { fieldEl("check_interval").value = "3"; fieldEl("cooldown").value = "30"; }
   $("testRes").textContent = "";
+  setVerify("idle", "", false);
   wizForm.querySelectorAll(".guide[open]").forEach(g => g.removeAttribute("open"));
 
   renderStep();
@@ -453,10 +560,56 @@ function renderStep() {
     ? (wiz.mode === "edit" ? "Guardar cambios" : "Crear alarma")
     : (key === "welcome" ? "Empezar" : "Siguiente");
 
-  if (isLast) buildSummary();
+  if (isLast) { buildSummary(); runVerify(); }
 
   const first = wizForm.querySelector(".step.active input");
   if (first) setTimeout(() => first.focus(), 60);
+}
+
+// ============ VERIFICACIÓN EN VIVO ============
+// Al entrar al resumen, conecta con los datos y confirma que el Entity ID es
+// una Smart Alarm alcanzable. Es un soft-gate: si falla igual se puede crear
+// (el server puede estar caído un momento), pero se avisa por qué.
+const vrf = { seq: 0, busy: false };
+
+function setVerify(state, text, showRetry) {
+  const box = $("verifyBox");
+  if (!box) return;
+  box.dataset.state = state;
+  box.style.display = state === "idle" ? "none" : "flex";
+  $("verifyText").textContent = text;
+  $("btnReverify").hidden = !showRetry;
+  if (wiz.steps[wiz.index] === "summary" && wiz.mode !== "edit") {
+    $("wizNext").textContent = state === "bad" ? "Crear igual" : "Crear alarma";
+  }
+}
+
+async function runVerify() {
+  // Single-flight: si ya hay una verificación en curso, no largar otra. El
+  // server la rechazaría con 429 y ese 429 pisaría el resultado bueno.
+  if (vrf.busy) return;
+  const b = collect();
+  if (!b.ip || !b.port || !b.player_token || !b.entity_id) {
+    setVerify("bad", "Faltan datos para verificar la conexión.", false);
+    return;
+  }
+  const mySeq = ++vrf.seq;
+  vrf.busy = true;
+  setVerify("checking", "Verificando la conexión con el servidor…", false);
+  let r;
+  try {
+    r = await send("/api/pair/verify", "POST", {
+      ip: b.ip, port: b.port, player_token: b.player_token, entity_id: b.entity_id,
+    });
+  } catch (err) {
+    if (mySeq === vrf.seq) setVerify("bad", err.message || "No se pudo verificar", true);
+    return;
+  } finally {
+    vrf.busy = false;
+  }
+  if (mySeq !== vrf.seq) return;
+  if (r.ok) setVerify("ok", "Conecta y es una Smart Alarm ✓", false);
+  else setVerify("bad", r.message || "La verificación falló", true);
 }
 
 function collect() {
@@ -569,8 +722,159 @@ async function testHook() {
 wizForm.addEventListener("submit", e => { e.preventDefault(); advance(); });
 $("wizBack").addEventListener("click", back);
 $("btnTestHook").addEventListener("click", testHook);
+$("btnReverify").addEventListener("click", runVerify);
 $("btnNew").addEventListener("click", () => openWizard());
 $("btnFirst").addEventListener("click", () => openWizard());
+
+// ============ VINCULACIÓN RUST+ ============
+// Una sesión de pairing por usuario, del lado del server. Acá: arrancarla,
+// pollear su estado mientras el wizard está abierto y volcar los datos.
+
+const pair = { active: false, timer: null, filledServer: false, filledEntity: false };
+
+function pairBoxes() { return [...wizForm.querySelectorAll("[data-pair]")]; }
+
+function pairStatus(text, cls) {
+  pairBoxes().forEach(box => {
+    const el = box.querySelector("[data-pair-status]");
+    el.textContent = text;
+    el.className = "pair-status" + (cls ? " " + cls : "");
+  });
+}
+
+function pairShowSteps(show) {
+  pairBoxes().forEach(box => {
+    box.querySelector("[data-pair-steps]").hidden = !show;
+    box.querySelector("[data-pair-btn]").hidden = show;
+  });
+}
+
+async function pairStart() {
+  // El pairing automático necesita que Facepunch pueda devolver el token a un
+  // callback HTTPS público. En local (http/127.0.0.1) no llega: mandamos a la
+  // vía manual en vez de dejar el flujo colgado.
+  if (!AUTO_PAIRING) {
+    pairBoxes().forEach(box => {
+      const d = box.querySelector(".pair-manual");
+      if (d) d.open = true;
+    });
+    toast("El pairing automático necesita el sitio publicado (HTTPS). Pegá los datos abajo.", "err");
+    return;
+  }
+  try {
+    const r = await send("/api/pair/start", "POST", {});
+    // Popup aparte: el login de Steam/Facepunch vuelve a /pair/callback.
+    window.open(r.login_url, "_blank", "noopener");
+    pair.active = true;
+    pair.filledServer = pair.filledEntity = false;
+    pairStatus("Esperando login con Steam…");
+    clearInterval(pair.timer);
+    pair.timer = setInterval(pairPoll, 2000);
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+// Los enteros grandes viajan como string y se asignan como string: nunca
+// pasarlos por Number (pierden precisión).
+async function pairPoll() {
+  if (!dlg.open) { pairStopLocal(); return; }
+  let s;
+  try { s = await api("/api/pair/status"); } catch (e) { return; }
+
+  if (s.state === "waiting_login") pairStatus("Esperando login con Steam…");
+  else if (s.state === "listening") {
+    pairShowSteps(true);
+    pairStatus(pair.filledServer && !pair.filledEntity
+      ? "Ahora pareá la Smart Alarm…" : "Escuchando… pareá en el juego", "listen");
+  }
+
+  if (s.steam_mismatch) {
+    pairStatus("Logueaste otra cuenta de Steam: repetí el login con la tuya", "warn");
+  } else {
+    if (s.server && !pair.filledServer) {
+      pair.filledServer = true;
+      fieldEl("ip").value = s.server.ip;
+      fieldEl("port").value = s.server.port;
+      fieldEl("player_token").value = s.server.player_token;
+      if (!fieldEl("name").value.trim() && s.server.name)
+        fieldEl("name").value = s.server.name.slice(0, 60);
+      ["ip", "port", "player_token"].forEach(clearFieldError);
+      toast("Servidor detectado: campos completados", "ok");
+    }
+    if (s.entity && !pair.filledEntity) {
+      pair.filledEntity = true;
+      fieldEl("entity_id").value = s.entity.entity_id;
+      clearFieldError("entity_id");
+      toast("Alarma detectada: Entity ID completado", "ok");
+    }
+  }
+
+  if (s.state === "expired") { pairStatus("Vinculación vencida; volvé a intentar", "bad"); pairStopLocal(); }
+  if (s.state === "error") { pairStatus(s.error || "Error de vinculación", "bad"); pairStopLocal(); }
+  if (s.state === "none" && !pair.filledServer && !pair.filledEntity) pairStopLocal();
+}
+
+function pairStopLocal() {
+  clearInterval(pair.timer);
+  pair.timer = null;
+  pair.active = false;
+  pairShowSteps(false);
+}
+
+dlg.addEventListener("close", () => {
+  if (pair.active) send("/api/pair/cancel", "POST", {}).catch(() => {});
+  pairStopLocal();
+  pairStatus(" ");
+});
+
+pairBoxes().forEach(box =>
+  box.querySelector("[data-pair-btn]").addEventListener("click", pairStart));
+
+// ---- Pegado manual de datos de vinculación (funciona local y en prod) ----
+// Acepta el JSON del pairing de Rust+: server (ip/port/playerToken/playerId) o
+// alarma (entityId). Todo como string — los enteros grandes no pasan por Number.
+function pastePairing(box) {
+  const ta = box.querySelector("[data-paste-box]");
+  const res = box.querySelector("[data-paste-res]");
+  const bad = m => { res.className = "res bad"; res.textContent = m; };
+  let obj;
+  try { obj = JSON.parse(ta.value.trim()); }
+  catch { bad("No es un JSON válido"); return; }
+  if (Array.isArray(obj)) obj = obj[0] || {};
+  if (!obj || typeof obj !== "object") { bad("No es un JSON válido"); return; }
+
+  const pick = (...keys) => {
+    for (const k of keys) if (obj[k] != null && String(obj[k]).trim() !== "") return String(obj[k]).trim();
+    return null;
+  };
+  const ip = pick("ip", "host", "server_host");
+  const port = pick("port", "app_port", "appPort");
+  const token = pick("playerToken", "player_token");
+  const pid = pick("playerId", "player_id", "steamId", "steam_id");
+  const eid = pick("entityId", "entity_id");
+  const nm = pick("name", "server_name", "serverName");
+
+  // Un token de otra cuenta de Steam no va a autenticar para la del panel.
+  if (pid && USER_STEAM_ID && pid !== USER_STEAM_ID) {
+    bad("Ese playerId es de otra cuenta de Steam (" + pid + "). El token no va a servir para la tuya.");
+    return;
+  }
+
+  const filled = [];
+  if (ip) { fieldEl("ip").value = ip; clearFieldError("ip"); filled.push("IP"); }
+  if (port) { fieldEl("port").value = port; clearFieldError("port"); filled.push("puerto"); }
+  if (token) { fieldEl("player_token").value = token; clearFieldError("player_token"); filled.push("player token"); }
+  if (eid) { fieldEl("entity_id").value = eid; clearFieldError("entity_id"); filled.push("Entity ID"); }
+  if (nm && !fieldEl("name").value.trim()) fieldEl("name").value = nm.slice(0, 60);
+
+  if (!filled.length) { bad("No encontré datos usables (ip/port/playerToken o entityId)"); return; }
+  res.className = "res ok";
+  res.textContent = "Completado: " + filled.join(", ") + " ✓";
+}
+
+wizForm.querySelectorAll("[data-paste-btn]").forEach(btn =>
+  btn.addEventListener("click", () => pastePairing(btn.closest("[data-pair]"))));
 
 // ============ TARJETAS ============
 
