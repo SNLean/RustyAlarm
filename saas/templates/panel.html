@@ -112,6 +112,14 @@
   }
   .field input:focus { outline: none; border-color: var(--accent-soft); }
   .field input[readonly] { background: var(--panel-2); color: var(--muted); cursor: default; }
+  .field select {
+    width: 100%; padding: 10px 12px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit;
+  }
+  .field select:focus { outline: none; border-color: var(--accent-soft); }
+  .sound-row { display: flex; gap: 8px; align-items: stretch; }
+  .sound-row select { flex: 1; }
+  .sound-row button { white-space: nowrap; }
   .field.invalid input { border-color: var(--accent); }
   .field .err { color: var(--accent-soft); font-size: 12px; margin-top: 4px; display: none; }
   .field.invalid .err { display: block; }
@@ -219,6 +227,7 @@
   <a class="brand" href="/panel"><span class="signal rust"></span> RustyAlarm</a>
   <span class="muted mono" style="font-size:12px">{{ user.steam_id }}</span>
   <span class="spacer"></span>
+  <button class="ghost" id="btnSoundToggle" type="button" title="Sonido de las alarmas">🔊</button>
   {% if admin %}<a class="btn ghost" href="/admin">Admin</a>{% endif %}
   <form method="post" action="/logout" style="margin:0">
     <button class="ghost" type="submit">Salir</button>
@@ -376,10 +385,19 @@
         <p class="desc" style="margin-top:10px">Podés dejarlo vacío y agregarlo después, pero sin webhook la alarma no avisa.</p>
       </section>
 
-      <!-- 5 · Ajustes -->
+      <!-- 5 · Sonido y ajustes -->
       <section class="step" data-step="settings">
-        <h3>Ajustes</h3>
-        <p class="lead">Los valores por defecto andan bien para la mayoría.</p>
+        <h3>Sonido y ajustes</h3>
+        <p class="lead">Elegí el sonido que va a sonar en esta página cuando la alarma se dispare.</p>
+        <div class="field" data-f="sound">
+          <label>Sonido de la alarma</label>
+          <div class="desc">Suena solo con la página abierta</div>
+          <div class="sound-row">
+            <select name="sound" id="soundSelect"></select>
+            <button type="button" class="ghost" id="btnPreviewSound">▶ Probar</button>
+          </div>
+          <div class="err"></div>
+        </div>
         <div class="frow">
           <div class="field" data-f="check_interval">
             <label>Intervalo (seg)</label>
@@ -424,7 +442,7 @@
 <script>
 // La extensión RustyAlarm Link (si está instalada) avisa "ready" por postMessage.
 let EXT_READY = false;
-const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown"];
+const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown","sound"];
 const STATUS_LABEL = {
   running: "Conectada", starting: "Conectando...", retrying: "Reintentando",
   error: "Error", stopped: "Pausada",
@@ -485,6 +503,12 @@ function openWizard(alarm) {
   clearFieldErrors();
   FIELDS.forEach(name => { fieldEl(name).value = alarm ? (alarm[name] ?? "") : ""; });
   if (!alarm) { fieldEl("check_interval").value = "3"; fieldEl("cooldown").value = "30"; }
+  // Sonido: la opción guardada, o el default del catálogo.
+  const soundSel = $("soundSelect");
+  if (soundSel) {
+    soundSel.value = (alarm && alarm.sound) || DEFAULT_SOUND;
+    if (!soundSel.value && soundSel.options.length) soundSel.value = soundSel.options[0].value;
+  }
   $("testRes").textContent = "";
   setVerify("idle", "", false);
   wizForm.querySelectorAll(".guide[open]").forEach(g => g.removeAttribute("open"));
@@ -603,6 +627,7 @@ function buildSummary() {
     ["Player token", esc(b.player_token), false],
     ["Entity ID", esc(b.entity_id), false],
     ["Discord", b.discord_webhook ? "configurado ✓" : "sin webhook — no avisa", !b.discord_webhook],
+    ["Sonido", esc(soundName(b.sound)), false],
     ["Intervalo / Cooldown", `${esc(b.check_interval)}s / ${esc(b.cooldown)}s`, false],
   ];
   $("summaryList").innerHTML = rows.map(([k, val, warn]) =>
@@ -862,6 +887,7 @@ function cardHtml(a) {
       <button onclick="openEditorById(${a.id})">Editar</button>
       <button onclick="toggleAlarm(${a.id})">${a.enabled ? "Pausar" : "Activar"}</button>
       <button onclick="testWebhook(${a.id})" ${a.discord_webhook ? "" : "disabled"}>Probar Discord</button>
+      <button onclick="previewCardSound(${a.id})">Probar sonido</button>
       <button onclick="toggleLog(${a.id})">Log</button>
       <button class="danger ghost" onclick="removeAlarm(${a.id})">Borrar</button>
     </div>
@@ -871,6 +897,15 @@ function cardHtml(a) {
 
 function render(data) {
   alarmsById = {};
+  // Disparo nuevo => sonar. Comparamos trigger_count contra lo último visto;
+  // la primera vez solo inicializamos (no sonar por disparos históricos).
+  data.alarms.forEach(a => {
+    const tc = (a.state && a.state.trigger_count) || 0;
+    if (a.id in lastTriggers) {
+      if (tc > lastTriggers[a.id]) playSound(a.sound);
+    }
+    lastTriggers[a.id] = tc;
+  });
   data.alarms.forEach(a => { alarmsById[a.id] = a; });
   $("planBanner").style.display = data.plan_active ? "none" : "block";
   $("quota").textContent = `${data.alarms.length}/${data.max_alarms}`;
@@ -909,6 +944,86 @@ async function testWebhook(id) {
   try { await send(`/api/alarms/${id}/test-webhook`, "POST", {}); toast("Mensaje de prueba enviado. Mira tu Discord.", "ok"); }
   catch (err) { toast(err.message, "error"); }
 }
+function previewCardSound(id) {
+  armAudio();
+  const a = alarmsById[id];
+  playSound(a && a.sound);
+}
+
+// ============ SONIDO ============
+// Catálogo cargado del backend; el panel reproduce el sonido de una alarma
+// cuando su trigger_count sube (nuevo disparo) y la página está abierta.
+let SOUNDS = [];
+let DEFAULT_SOUND = "";
+let soundOn = localStorage.getItem("ra_sound_off") !== "1";
+const lastTriggers = {};        // id -> trigger_count visto
+let audioArmed = false;
+const audioEl = new Audio();
+audioEl.preload = "auto";
+
+function soundName(file) {
+  const s = SOUNDS.find(x => x.file === file);
+  return s ? s.name : (file || "Por defecto");
+}
+
+async function loadSounds() {
+  try {
+    const d = await api("/api/sounds");
+    SOUNDS = d.sounds || [];
+    DEFAULT_SOUND = d.default || (SOUNDS[0] && SOUNDS[0].file) || "";
+    const sel = $("soundSelect");
+    if (sel) sel.innerHTML = SOUNDS.map(s =>
+      `<option value="${esc(s.file)}">${esc(s.name)}</option>`).join("");
+  } catch (_) {}
+}
+
+// Los navegadores exigen un gesto del usuario para reproducir audio. Al primer
+// click desbloqueamos el elemento (play mudo) para que después suene desde el
+// timer del polling.
+function armAudio() {
+  if (audioArmed || !DEFAULT_SOUND) return;
+  audioArmed = true;
+  audioEl.muted = true;
+  audioEl.src = "/sounds/" + encodeURIComponent(DEFAULT_SOUND);
+  const p = audioEl.play();
+  if (p) p.then(() => { audioEl.pause(); audioEl.currentTime = 0; audioEl.muted = false; })
+         .catch(() => { audioEl.muted = false; });
+}
+window.addEventListener("pointerdown", armAudio, { once: false });
+
+function playSound(file) {
+  if (!soundOn) return;
+  const f = (file && SOUNDS.some(s => s.file === file)) ? file : DEFAULT_SOUND;
+  if (!f) return;
+  try {
+    audioEl.muted = false;
+    audioEl.src = "/sounds/" + encodeURIComponent(f);
+    audioEl.currentTime = 0;
+    const p = audioEl.play();
+    if (p) p.catch(() => {});   // bloqueado por autoplay: el visual igual muestra SONANDO
+  } catch (_) {}
+}
+
+function updateSoundToggle() {
+  const b = $("btnSoundToggle");
+  if (b) { b.textContent = soundOn ? "🔊" : "🔇"; b.title = soundOn ? "Sonido activado" : "Sonido silenciado"; }
+}
+$("btnSoundToggle").addEventListener("click", () => {
+  soundOn = !soundOn;
+  localStorage.setItem("ra_sound_off", soundOn ? "0" : "1");
+  updateSoundToggle();
+  if (soundOn) { armAudio(); toast("Sonido activado", "ok"); }
+  else { try { audioEl.pause(); } catch (_) {} toast("Sonido silenciado", "ok"); }
+});
+
+$("btnPreviewSound").addEventListener("click", () => {
+  armAudio();
+  const sel = $("soundSelect");
+  playSound(sel && sel.value ? sel.value : DEFAULT_SOUND);
+});
+
+updateSoundToggle();
+loadSounds();
 
 refresh();
 setInterval(refresh, 2000);

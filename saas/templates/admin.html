@@ -32,6 +32,15 @@
   td.act { text-align: right; }
   td.act button { padding: 6px 12px; font-size: 13px; }
   .empty-row td { text-align: center; color: var(--text-mute); padding: 40px; }
+
+  .sound-upload { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .sound-upload input[type=text] {
+    flex: 1; min-width: 180px; padding: 9px 12px; border-radius: var(--r-md, 8px);
+    border: 1px solid var(--line); background: var(--surface-1); color: var(--text); font: inherit;
+  }
+  .sound-upload input[type=text]:focus { outline: none; border-color: var(--accent-soft); }
+  .sound-upload input[type=file] { color: var(--text-dim); font-size: 13px; }
+  .btn-mini { padding: 2px 9px !important; font-size: 12px !important; }
 {% endblock %}
 
 {% block body %}
@@ -51,6 +60,20 @@
         <tr><th>Steam ID</th><th>Alta</th><th>Alarmas</th><th>Plan</th><th>Estado</th><th></th></tr>
       </thead>
       <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <h2 style="margin-top:40px">Sonidos</h2>
+  <p>Catálogo que los usuarios eligen para sus alarmas. Subí <b>.mp3</b>, <b>.ogg</b> o <b>.wav</b> (máx 2 MB). Los de fábrica no se pueden borrar.</p>
+  <form id="soundForm" class="sound-upload">
+    <input type="text" id="soundName" placeholder="Nombre (ej: Sirena grave)" maxlength="40" autocomplete="off">
+    <input type="file" id="soundFile" accept=".mp3,.ogg,.wav,audio/*" required>
+    <button type="submit" class="primary">Subir sonido</button>
+  </form>
+  <div class="table-wrap" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Sonido</th><th>Archivo</th><th>Origen</th><th></th></tr></thead>
+      <tbody id="soundRows"></tbody>
     </table>
   </div>
 </main>
@@ -84,7 +107,55 @@ async function toggleUser(steamId) {
   catch (err) { toast(err.message, "error"); }
 }
 
+// ---- Sonidos ----
+const adminAudio = new Audio();
+function previewSound(file) {
+  try { adminAudio.src = "/sounds/" + encodeURIComponent(file); adminAudio.currentTime = 0; adminAudio.play().catch(() => {}); }
+  catch (_) {}
+}
+
+async function loadSounds() {
+  try {
+    const d = await api("/api/sounds");
+    const rows = (d.sounds || []).map(s => `
+      <tr>
+        <td>${esc(s.name)} <button class="ghost btn-mini" onclick="previewSound('${esc(s.file)}')">▶</button></td>
+        <td class="mono">${esc(s.file)}</td>
+        <td>${s.builtin ? "de fábrica" : "subido"}</td>
+        <td class="act">${s.builtin ? "" : `<button class="danger ghost" onclick="deleteSound('${esc(s.file)}')">Borrar</button>`}</td>
+      </tr>`).join("");
+    document.getElementById("soundRows").innerHTML = rows ||
+      `<tr class="empty-row"><td colspan="4">Sin sonidos.</td></tr>`;
+  } catch (err) { toast(err.message, "error"); }
+}
+
+async function deleteSound(file) {
+  if (!confirm("Borrar el sonido " + file + "?")) return;
+  try {
+    const res = await fetch("/api/admin/sounds/" + encodeURIComponent(file), { method: "DELETE" });
+    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || `HTTP ${res.status}`);
+    toast("Sonido borrado", "ok"); loadSounds();
+  } catch (err) { toast(err.message, "error"); }
+}
+
+document.getElementById("soundForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = document.getElementById("soundFile").files[0];
+  if (!f) { toast("Elegí un archivo", "error"); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("name", document.getElementById("soundName").value);
+  try {
+    const res = await fetch("/api/admin/sounds", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    toast("Sonido subido ✓", "ok");
+    e.target.reset(); loadSounds();
+  } catch (err) { toast(err.message, "error"); }
+});
+
 refresh();
 setInterval(refresh, 5000);
+loadSounds();
 </script>
 {% endblock %}

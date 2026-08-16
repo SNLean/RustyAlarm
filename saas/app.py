@@ -12,10 +12,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from . import db, pairing, steam, verify
+from . import db, pairing, sounds, steam, verify
 from .config import ADMIN_STEAM_ID, BASE_URL, MAX_ALARMS, SESSION_COOKIE, SESSION_DAYS
 from .monitor import manager
 from .notify import send_discord
@@ -116,6 +116,7 @@ def alarm_to_client(row, state=None):
         "check_interval": row["check_interval"],
         "cooldown": row["cooldown"],
         "discord_webhook": row["discord_webhook"],
+        "sound": row["sound"] or "",
         "enabled": bool(row["enabled"]),
     }
     if state is not None:
@@ -230,7 +231,7 @@ async def list_alarms(request: Request):
 
 # Campos que el cliente SI puede mandar. ip/port/player_token/entity_id nunca
 # salen del cliente: vienen del pairing (alta) o de lo ya guardado (edicion).
-_CLIENT_FIELDS = ("name", "discord_webhook", "check_interval", "cooldown")
+_CLIENT_FIELDS = ("name", "discord_webhook", "check_interval", "cooldown", "sound")
 
 
 @app.post("/api/alarms")
@@ -493,6 +494,64 @@ async def pair_verify(request: Request):
             _verify_last.pop(sid, None)
 
     return result
+
+
+# ================= SONIDOS =================
+
+@app.get("/api/sounds")
+async def list_sounds(request: Request):
+    if current_user(request) is None:
+        return need_login()
+    return {"sounds": sounds.catalog(), "default": sounds.default_sound()}
+
+
+@app.get("/sounds/{file}")
+async def get_sound(file: str, request: Request):
+    if current_user(request) is None:
+        return need_login()
+    path = sounds.resolve(file)   # blinda path traversal; None si no existe
+    if path is None:
+        return JSONResponse({"error": "No existe"}, status_code=404)
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.post("/api/admin/sounds")
+async def admin_upload_sound(request: Request):
+    user = current_user(request)
+    if not is_admin(user):
+        return JSONResponse({"error": "Solo admin"}, status_code=403)
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "filename") or not upload.filename:
+        return JSONResponse({"error": "Falta el archivo"}, status_code=400)
+    if Path(upload.filename).suffix.lower() not in sounds.ALLOWED_EXT:
+        return JSONResponse({"error": "Formato no permitido (mp3, ogg o wav)"},
+                            status_code=400)
+    data = await upload.read()
+    if len(data) > sounds.MAX_BYTES:
+        return JSONResponse({"error": "El archivo supera los 2 MB"}, status_code=400)
+    display = str(form.get("name") or "").strip() or Path(upload.filename).stem
+    filename = sounds.upload_filename(display, upload.filename)
+    try:
+        sounds.save_upload(filename, data)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"ok": True, "sound": {"file": filename, "builtin": False}}
+
+
+@app.delete("/api/admin/sounds/{file}")
+async def admin_delete_sound(file: str, request: Request):
+    user = current_user(request)
+    if not is_admin(user):
+        return JSONResponse({"error": "Solo admin"}, status_code=403)
+    if not same_origin(request):
+        return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    if not sounds.delete_upload(file):   # solo sonidos subidos, nunca built-in
+        return JSONResponse({"error": "No existe o es un sonido de fabrica"},
+                            status_code=404)
+    return {"ok": True}
 
 
 # ================= API ADMIN =================

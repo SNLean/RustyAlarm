@@ -8,6 +8,7 @@ bloquear el event loop.
 import hashlib
 import ipaddress
 import math
+import re
 import secrets
 import sqlite3
 import threading
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS alarms (
     check_interval  REAL NOT NULL DEFAULT 3,
     cooldown        REAL NOT NULL DEFAULT 30,
     discord_webhook TEXT NOT NULL DEFAULT '',
+    sound           TEXT NOT NULL DEFAULT '',
     enabled         INTEGER NOT NULL DEFAULT 1,
     created_at      REAL NOT NULL,
     updated_at      REAL NOT NULL
@@ -66,6 +68,12 @@ def connect():
             _conn.execute("PRAGMA journal_mode=WAL")
             _conn.execute("PRAGMA foreign_keys=ON")
             _conn.executescript(SCHEMA)
+            # Migracion: agregar `sound` a bases ya creadas (CREATE IF NOT
+            # EXISTS no toca tablas viejas).
+            have = {r[1] for r in _conn.execute("PRAGMA table_info(alarms)")}
+            if "sound" not in have:
+                _conn.execute(
+                    "ALTER TABLE alarms ADD COLUMN sound TEXT NOT NULL DEFAULT ''")
             _conn.commit()
         return _conn
 
@@ -299,6 +307,14 @@ def validate_alarm(data: dict) -> dict:
         errors["discord_webhook"] = "Debe ser una URL de webhook de Discord"
     clean["discord_webhook"] = webhook
 
+    # Sonido: solo un nombre de archivo seguro (basename + extension de audio) o
+    # vacio (= sonido por defecto). No se arma ninguna ruta con esto sin pasar
+    # por sounds.resolve(); la validez contra el catalogo la chequea la ruta.
+    sound = str(data.get("sound", "")).strip()
+    if sound and not re.match(r"^[a-z0-9._-]+\.(mp3|ogg|wav)$", sound):
+        errors["sound"] = "Sonido invalido"
+    clean["sound"] = sound
+
     if errors:
         raise ValidationError(errors)
     return clean
@@ -332,11 +348,11 @@ def create_alarm(steam_id: str, data: dict):
         now = time.time()
         cur = _run(
             "INSERT INTO alarms (steam_id, name, ip, port, player_token, entity_id,"
-            " check_interval, cooldown, discord_webhook, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            " check_interval, cooldown, discord_webhook, sound, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (steam_id, clean["name"], clean["ip"], clean["port"],
              clean["player_token"], clean["entity_id"], clean["check_interval"],
-             clean["cooldown"], clean["discord_webhook"], now, now),
+             clean["cooldown"], clean["discord_webhook"], clean["sound"], now, now),
         )
         return get_alarm(cur.lastrowid)
 
@@ -347,11 +363,11 @@ def update_alarm(alarm_id: int, steam_id: str, data: dict):
     clean = validate_alarm(data)
     _run(
         "UPDATE alarms SET name=?, ip=?, port=?, player_token=?, entity_id=?,"
-        " check_interval=?, cooldown=?, discord_webhook=?, updated_at=?"
+        " check_interval=?, cooldown=?, discord_webhook=?, sound=?, updated_at=?"
         " WHERE id=? AND steam_id=?",
         (clean["name"], clean["ip"], clean["port"], clean["player_token"],
          clean["entity_id"], clean["check_interval"], clean["cooldown"],
-         clean["discord_webhook"], time.time(), alarm_id, steam_id),
+         clean["discord_webhook"], clean["sound"], time.time(), alarm_id, steam_id),
     )
     return get_alarm(alarm_id)
 
