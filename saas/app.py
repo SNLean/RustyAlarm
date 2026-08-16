@@ -3,6 +3,7 @@
 Arranque: python -m saas
 """
 
+import asyncio
 import logging
 import secrets
 import time
@@ -44,6 +45,13 @@ async def lifespan(app):
         logging.getLogger("rustalarm").warning(
             "RUSTALARM_BASE_URL=%s no es https y no es local: las cookies NO "
             "seran Secure. En produccion usa https://tu-dominio.", BASE_URL)
+    # rustplus despacha el manejo de sus mensajes (incluido el emparejado de
+    # respuestas) con asyncio.get_event_loop_policy().get_event_loop().create_task().
+    # Bajo uvicorn eso puede resolver a un loop que NO es el que corre, y
+    # entonces handle_message nunca ejecuta: cada get_entity_info agota el
+    # timeout y devuelve "No response received". Fijamos el loop de la policy al
+    # que realmente corre para que esas tareas caigan donde deben.
+    asyncio.set_event_loop(asyncio.get_running_loop())
     db.connect()
     await manager.start()
     yield
