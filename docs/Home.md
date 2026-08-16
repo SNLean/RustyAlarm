@@ -1,51 +1,51 @@
 ---
-title: RustyAlarm — Índice
+title: RustyAlarm — Index
 tags:
   - moc
   - rustyalarm
 aliases:
   - Home
   - MOC
-  - Índice
+  - Index
 ---
 
 # RustyAlarm 🔔
 
-Servicio que vigila una **Smart Alarm de Rust** (el juego) vía la API de Rust+ y avisa cuando se dispara. Dos productos en un repo, comparten la librería [[rustplus]].
+A service that watches a Rust (the game) **Smart Alarm** through the Rust+ API and alerts you when it fires. Two products in one repo, sharing the [[rustplus]] library.
 
-> [!info] Repositorio
-> Privado: [github.com/SNLean/RustyAlarm](https://github.com/SNLean/RustyAlarm) · rama `main`
+> [!info] Documentation language
+> This vault is written in **English** (it is internal/agent documentation — better for tooling). Everything the **end user** sees — the templates, the wizard, error messages, the landing — stays in **Spanish**. See [[Maintaining this vault]].
 
-## Mapa
+> [!info] Repository
+> Private: [github.com/SNLean/RustyAlarm](https://github.com/SNLean/RustyAlarm) · branch `main`
 
-- [[Arquitectura]] — cómo encaja todo
-- [[Servicio de suscripción]] — la webapp multiusuario (`saas/`)
-- [[Herramienta desktop]] — la app local original (`webapp.py`, `rust.py`)
-- [[Decisiones de producto]] — qué se eligió y por qué
-- [[Seguridad y revisión]] — hallazgos de la revisión adversarial y sus fixes
-- [[Deploy en VPS]] — Ubuntu + nginx + HTTPS
+## Map
 
-## Referencias (docs oficiales)
+- [[Architecture]] — how everything fits together
+- [[Subscription service]] — the multi-user web app (`saas/`)
+- [[Desktop tool]] — the original local app (`webapp.py`, `rust.py`)
+- [[Product decisions]] — what was chosen and why
+- [[Security review]] — findings from the adversarial review and their fixes
+- [[VPS deployment]] — Ubuntu + nginx + HTTPS
 
-- [[rustplus]] — librería Python de Rust+
-- [[Rust+ y emparejamiento]] — de dónde salen Steam ID, player token, entity ID
-- [[Steam OpenID]] — login con Steam
-- [[FastAPI y Uvicorn]] — stack del servicio
-- [[nginx y systemd]] — correr en producción
-- [[Discord Webhooks]] — el canal de aviso
-- [[Skills de diseño y animación]] — herramientas para pulir UI/animación
+## References (official docs)
 
-## Registro de sesiones
+- [[rustplus]] — the Rust+ Python library
+- [[Rust+ pairing]] — where Steam ID, player token and entity ID come from
+- [[Steam OpenID]] — Steam login
+- [[FastAPI and Uvicorn]] — the service stack
+- [[nginx and systemd]] — running in production
+- [[Discord Webhooks]] — the alert channel
+- [[Design and animation skills]] — tooling to polish UI/motion
 
-- [[Registro/2026-08-15 — Del script al servicio]]
-- [[Registro/2026-08-15 — Skills de diseño y animación]]
-- [[Registro/2026-08-15 — Asistente de alta guiado]]
-- [[Registro/2026-08-15 — Rediseño del front]]
-- [[Registro/2026-08-15 — README y documentación oficial]]
+## Session log
+
+- [[Log/2026-08-15 — From script to service]]
+- [[Log/2026-08-15 — Design and animation skills]]
+- [[Log/2026-08-15 — Guided alarm wizard]]
+- [[Log/2026-08-15 — Frontend redesign]]
+- [[Log/2026-08-15 — README and official docs]]
 
 ## Meta
 
-- [[Cómo mantener este vault]]
-
-> [!tip] Cómo se mantiene este vault
-> Ver [[Cómo mantener este vault]]. Regla corta: cada sesión de trabajo deja una nota en `Registro/` con fecha, qué cambió y **weblinks** a las fuentes usadas; los datos duraderos se destilan en las notas temáticas de arriba.
+- [[Maintaining this vault]]
