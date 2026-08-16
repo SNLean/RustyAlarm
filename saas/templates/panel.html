@@ -761,18 +761,30 @@ async function pairPoll() {
         fieldEl("name").value = s.server.name.slice(0, 60);
       ["ip", "port", "player_token"].forEach(clearFieldError);
       toast("Servidor detectado: campos completados", "ok");
+      autoAdvanceFrom("server");
     }
     if (s.entity && !pair.filledEntity) {
       pair.filledEntity = true;
       fieldEl("entity_id").value = s.entity.entity_id;
       clearFieldError("entity_id");
       toast("Alarma detectada: Entity ID completado", "ok");
+      autoAdvanceFrom("alarm");
     }
   }
 
   if (s.state === "expired") { pairStatus("Vinculación vencida; volvé a intentar", "bad"); pairStopLocal(); }
   if (s.state === "error") { pairStatus(s.error || "Error de vinculación", "bad"); pairStopLocal(); }
   if (s.state === "none" && !pair.filledServer && !pair.filledEntity) pairStopLocal();
+}
+
+// Al detectarse los datos de un paso, saltar solo al siguiente. Breve demora
+// para que se vea "detectado ✓", y sin pisar al usuario si ya se movió a mano.
+function autoAdvanceFrom(step) {
+  if (wiz.steps[wiz.index] !== step) return;
+  setTimeout(() => {
+    if (dlg.open && wiz.steps[wiz.index] === step && wiz.index < wiz.steps.length - 1)
+      goTo(wiz.index + 1);
+  }, 800);
 }
 
 function pairStopLocal() {
