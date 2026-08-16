@@ -174,6 +174,12 @@
   }
   .pairbox.linked { border-left-color: var(--ok); }
   .pair-done { color: var(--ok); font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  .linklike {
+    background: none; border: none; padding: 6px 0 0; margin: 0;
+    color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline;
+    cursor: pointer;
+  }
+  .linklike:hover { color: var(--accent-soft); }
   .pairbox .pair-head { display: flex; align-items: center; gap: 10px; }
   .pairbox .pair-head b { font-size: 13px; }
   .pairbox .pair-status { font-size: 12px; margin-left: auto; color: var(--muted); }
@@ -305,6 +311,7 @@
               <li>Dejá esta ventana abierta.</li>
               <li>En el juego: <code>Esc</code> <i class="fas fa-arrow-right fa-xs"></i> <b>Rust+</b> <i class="fas fa-arrow-right fa-xs"></i> <b>Pair with Server</b>.</li>
             </ol>
+            <button type="button" class="linklike" data-pair-relink>usar otra cuenta de Steam</button>
           </div>
         </div>
         <div class="frow">
@@ -346,6 +353,7 @@
               <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
               <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
             </ol>
+            <button type="button" class="linklike" data-pair-relink>usar otra cuenta de Steam</button>
           </div>
         </div>
         <div class="field" data-f="entity_id">
@@ -746,31 +754,38 @@ function pairShowSteps(show) {
   });
 }
 
-async function pairStart() {
-  // Facepunch entrega el token por ReactNativeWebView.postMessage, que solo una
-  // extensión puede capturar. Sin la extensión RustyAlarm Link, mandamos al
-  // pegado manual en vez de dejar el flujo colgado.
-  if (!EXT_READY) {
-    toast("Necesitás la extensión RustyAlarm Link para vincular. Instalala y recargá la página.", "err");
-    return;
-  }
+async function pairStart(force) {
+  let r;
   try {
-    const r = await send("/api/pair/start", "POST", {});
-    // Pasarle el nonce a la extensión: autoriza la entrega del Token sin cookie.
-    window.postMessage({ source: "rustyalarm-page", type: "link",
-      nonce: r.link_nonce, apiBase: location.origin }, location.origin);
-    // Popup del login de Steam; la extensión captura el Token ahí dentro.
-    window.open(r.login_url, "_blank", "noopener");
+    r = await send("/api/pair/start", "POST", force ? { force: true } : {});
+  } catch (e) { toast(e.message, "err"); return; }
+
+  const startPolling = (statusText, cls) => {
     pair.active = true;
     pair.filledServer = pair.filledEntity = false;
     pair.notifiedListening = false;
     pairSetActive(true);
-    pairStatus("Esperando login con Steam…");
+    pairStatus(statusText, cls);   // pairPoll lo corrige al estado real en 2s
     clearInterval(pair.timer);
     pair.timer = setInterval(pairPoll, 2000);
-  } catch (e) {
-    toast(e.message, "err");
+  };
+
+  // Ya vinculado antes: el server reusa las credenciales guardadas y escucha
+  // directo, sin login ni extensión. No hace falta abrir nada.
+  if (r.reused) { startPolling("Escuchando… pareá en el juego", "listen"); return; }
+
+  // Primera vez (o forzando re-login): hace falta la extensión para capturar el
+  // token de Facepunch. Facepunch lo entrega por postMessage, que solo una
+  // extensión puede leer.
+  if (!EXT_READY) {
+    send("/api/pair/cancel", "POST", {}).catch(() => {});
+    toast("Necesitás la extensión RustyAlarm Link para vincular por primera vez. Instalala y recargá la página.", "err");
+    return;
   }
+  window.postMessage({ source: "rustyalarm-page", type: "link",
+    nonce: r.link_nonce, apiBase: location.origin }, location.origin);
+  window.open(r.login_url, "_blank", "noopener");
+  startPolling("Esperando login con Steam…", "");
 }
 
 // Detección de la extensión: escuchar su "ready" y hacer un ping por si el
@@ -856,8 +871,14 @@ dlg.addEventListener("close", () => {
   pairStatus(" ");
 });
 
-pairBoxes().forEach(box =>
-  box.querySelector("[data-pair-btn]").addEventListener("click", pairStart));
+pairBoxes().forEach(box => {
+  box.querySelector("[data-pair-btn]").addEventListener("click", () => pairStart());
+  const relink = box.querySelector("[data-pair-relink]");
+  if (relink) relink.addEventListener("click", () => {
+    if (!EXT_READY) { toast("Para cambiar de cuenta necesitás la extensión instalada.", "err"); return; }
+    pairStart(true);
+  });
+});
 
 // ============ TARJETAS ============
 

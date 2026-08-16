@@ -32,6 +32,9 @@ The [[Subscription service]] wizard captures all of this automatically — the u
 > [!important] Why a browser extension is required
 > After Steam login, Facepunch hands the token back via `window.ReactNativeWebView.postMessage({SteamId, Token})` — a native-app bridge. It **no longer** puts the token in a redirect URL, so a plain hosted page cannot read it (same-origin policy blocks injecting into the cross-origin popup); only a browser extension, the mobile app, or a `--disable-web-security` browser can. `companion-rust.facepunch.com/app?returnUrl=` does **not** return the token to your site (it 500s). This was verified against `rustplus.js` and the rustplus.py docs — full narrative in [[Pitfalls and fixes]].
 
+> [!note] Log in once, not per alarm
+> The FCM credentials are cached in the `pairing_creds` table (`saas/db.py`), so the Steam login only happens the **first** time (or after ~12 days, `REUSE_MAX_AGE`). Later alarms reuse the stored registration and just listen — `/api/pair/start` returns `reused: true` with no login and no extension needed; the user only pairs in-game. "usar otra cuenta de Steam" in the wizard forces a fresh login (`force: true`). The one-time AuthToken is still never stored — only the durable FCM registration is.
+
 ## Manual alternatives (not used by our wizard)
 
 The community [RustPlus.py Link Companion](https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf) extension or the terminal tool below produce the same pairing JSON, in case you need the raw values outside the app:

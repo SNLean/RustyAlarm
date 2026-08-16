@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS alarms (
     updated_at      REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS pairing_creds (
+    steam_id        TEXT PRIMARY KEY REFERENCES users(steam_id) ON DELETE CASCADE,
+    fcm_credentials TEXT NOT NULL,
+    expo_token      TEXT NOT NULL,
+    created_at      REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_alarms_steam ON alarms(steam_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
 """
@@ -165,6 +172,31 @@ def user_by_session(token: str):
 
 def delete_session(token: str):
     _run("DELETE FROM sessions WHERE token=?", (_hash_token(token),))
+
+
+# ================= CREDENCIALES DE PAIRING =================
+# Guardadas para no re-loguear en Facepunch en cada alarma. Son moderadamente
+# sensibles (permiten recibir las notificaciones de pairing del usuario): viven
+# solo en la base gitignoreada, igual que player_token. El AuthToken de
+# Facepunch NUNCA se guarda.
+
+def save_pairing_creds(steam_id: str, fcm_credentials: str, expo_token: str):
+    _run(
+        "INSERT INTO pairing_creds (steam_id, fcm_credentials, expo_token, created_at)"
+        " VALUES (?,?,?,?)"
+        " ON CONFLICT(steam_id) DO UPDATE SET"
+        " fcm_credentials=excluded.fcm_credentials, expo_token=excluded.expo_token,"
+        " created_at=excluded.created_at",
+        (steam_id, fcm_credentials, expo_token, time.time()),
+    )
+
+
+def get_pairing_creds(steam_id: str):
+    return _run("SELECT * FROM pairing_creds WHERE steam_id=?", (steam_id,), fetch="one")
+
+
+def delete_pairing_creds(steam_id: str):
+    _run("DELETE FROM pairing_creds WHERE steam_id=?", (steam_id,))
 
 
 # ================= ALARMAS =================

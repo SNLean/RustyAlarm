@@ -386,15 +386,18 @@ async def pair_start(request: Request):
         return need_login()
     if not same_origin(request):
         return JSONResponse({"error": "Origen invalido"}, status_code=403)
+    data = await read_json(request)
+    force = bool(data.get("force"))     # forzar re-login (otra cuenta / expiro)
     try:
-        session = await pairing.pairing_manager.start(user["steam_id"])
+        session = await pairing.pairing_manager.start(user["steam_id"], force_login=force)
     except pairing.PairingError as exc:
         return JSONResponse({"error": str(exc)}, status_code=503)
-    return JSONResponse({
-        "ok": True,
-        "login_url": pairing.login_url(),
-        "link_nonce": session.link_nonce,
-    })
+    # reused=True: ya estamos escuchando con credenciales guardadas, sin login.
+    out = {"ok": True, "reused": session.reused}
+    if not session.reused:
+        out["login_url"] = pairing.login_url()
+        out["link_nonce"] = session.link_nonce
+    return JSONResponse(out)
 
 
 @app.post("/api/pair/link")

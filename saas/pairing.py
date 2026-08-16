@@ -34,7 +34,13 @@ from push_receiver import PushReceiver
 from push_receiver.android_fcm_register import AndroidFCM
 from push_receiver.mcs import Close, DataMessageStanza, HeartbeatPing
 
+from . import db
+
 log = logging.getLogger("rustalarm.pairing")
+
+# Cuanto reusar las credenciales FCM guardadas sin re-loguear en Facepunch. El
+# AuthToken/registro dura ~2 semanas; 12 dias deja margen antes de refrescar.
+REUSE_MAX_AGE = 12 * 24 * 3600
 
 # Constantes publicas de la app companion oficial (com.facepunch.rust.companion).
 # Son las mismas que usa rustplus.js/rustCli; no son secretos.
@@ -93,6 +99,7 @@ class PairingSession:
         self.lock = threading.Lock()
         self.fcm_credentials = None
         self.expo_token = None
+        self.reused = False          # arranco de credenciales guardadas (sin login)
         self.server = None           # ultimo pairing type=server
         self.entity = None           # ultimo pairing type=entity
         self.error = None
@@ -266,7 +273,7 @@ class PairingManager:
                 return session
         return None
 
-    async def start(self, steam_id: str) -> PairingSession:
+    async def start(self, steam_id: str, force_login: bool = False) -> PairingSession:
         with self._lock:
             self._sweep_locked()
             old = self.sessions.pop(steam_id, None)
@@ -279,6 +286,23 @@ class PairingManager:
             self.sessions[steam_id] = session
         if old is not None:
             old.stop()
+
+        # Camino rapido: si hay credenciales FCM guardadas y frescas, escuchar
+        # directo sin mandar al usuario a loguear de nuevo en Facepunch.
+        if not force_login:
+            stored = await asyncio.to_thread(db.get_pairing_creds, steam_id)
+            if stored and (time.time() - stored["created_at"]) < REUSE_MAX_AGE:
+                try:
+                    session.fcm_credentials = json.loads(stored["fcm_credentials"])
+                except (ValueError, TypeError):
+                    session.fcm_credentials = None
+                if session.fcm_credentials:
+                    session.expo_token = stored["expo_token"]
+                    session.reused = True
+                    session.start_listening()
+                    asyncio.get_running_loop().create_task(self._expire(session))
+                    return session
+
         try:
             await asyncio.to_thread(session.register_push)
         except Exception as exc:
@@ -318,6 +342,13 @@ class PairingManager:
                 session.error = "Facepunch rechazo el registro; reintenta"
             raise PairingError(session.error)
         session.start_listening()
+        # Guardar las credenciales para reusar sin re-login la proxima vez.
+        try:
+            await asyncio.to_thread(
+                db.save_pairing_creds, session.steam_id,
+                json.dumps(session.fcm_credentials), session.expo_token or "")
+        except Exception:
+            log.warning("No se pudieron guardar las credenciales de pairing")
 
     async def _expire(self, session: PairingSession) -> None:
         # Doble espera: TTL de login y despues (si se activo) TTL de escucha.
