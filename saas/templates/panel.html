@@ -111,6 +111,7 @@
     border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit;
   }
   .field input:focus { outline: none; border-color: var(--accent-soft); }
+  .field input[readonly] { background: var(--panel-2); color: var(--muted); cursor: default; }
   .field.invalid input { border-color: var(--accent); }
   .field .err { color: var(--accent-soft); font-size: 12px; margin-top: 4px; display: none; }
   .field.invalid .err { display: block; }
@@ -176,20 +177,6 @@
     background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
     padding: 1px 5px; font: 12px Consolas, monospace;
   }
-  .pair-manual { margin-top: 10px; }
-  .pair-manual > summary {
-    cursor: pointer; font-size: 12px; font-weight: 600; color: var(--accent-soft);
-    list-style: none;
-  }
-  .pair-manual > summary::before { content: "▸ "; }
-  .pair-manual[open] > summary::before { content: "▾ "; }
-  .pair-manual textarea {
-    width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 6px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--text);
-    font: 12px Consolas, monospace; resize: vertical;
-  }
-  .pair-manual textarea:focus { outline: none; border-color: var(--accent-soft); }
-
   .test-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
   .test-row .res { font-size: 13px; }
   .test-row .res.ok { color: var(--ok); }
@@ -293,58 +280,37 @@
       <!-- 2 · Servidor -->
       <section class="step" data-step="server">
         <h3>Datos del servidor</h3>
-        <p class="lead">Estos tres salen de <b>parear el servidor</b> desde Rust+.</p>
+        <p class="lead">Se completan al <b>parear el servidor</b> desde Rust+. No se cargan a mano.</p>
         <div class="pairbox" data-pair>
           <div class="pair-head">
-            <b>Vinculación automática</b>
+            <b>Vinculación con Rust+</b>
             <span class="pair-status" data-pair-status>&nbsp;</span>
           </div>
-          <p class="desc">Logueá con Steam una vez, pareá en el juego y estos campos se completan solos.</p>
+          <p class="desc">Logueá con Steam una vez y pareá en el juego; estos campos se completan solos.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
           <ol data-pair-steps hidden>
             <li>Dejá esta ventana abierta.</li>
             <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
           </ol>
-          <details class="pair-manual">
-            <summary>o pegá los datos de vinculación</summary>
-            <p class="desc">Pegá el JSON del pairing (el bloque con <code>ip</code>, <code>port</code>, <code>playerToken</code>; o el de la alarma con <code>entityId</code>).</p>
-            <textarea data-paste-box rows="4" spellcheck="false" placeholder='{"ip":"200.40.131.36","port":"28082","playerId":"7656...","playerToken":"-52960231"}'></textarea>
-            <div class="test-row">
-              <button type="button" class="ghost" data-paste-btn>Rellenar con esto</button>
-              <span class="res" data-paste-res></span>
-            </div>
-          </details>
         </div>
-        <details class="guide">
-          <summary>¿Preferís copiar los datos a mano?</summary>
-          <p class="desc" style="margin:6px 0 8px">Con la vinculación automática no necesitás nada de esto. Si igual querés hacerlo manual:</p>
-          <ol>
-            <li>Instalá la extensión <a href="https://chrome.google.com/webstore/detail/rustpluspy-link-companion/gojhnmnggbnflhdcpcemeahejhcimnlf" target="_blank" rel="noopener">RustPlus.py Link Companion</a> y hacé login con Steam. Dejá "listen for notifications" abierto.</li>
-            <li>En el juego: <code>Esc</code> → <b>Rust+</b> → <b>Pair with Server</b>.</li>
-            <li>En la notificación que llega, copiá: <code>ip</code>, <code>port</code> y <code>playerToken</code>.</li>
-          </ol>
-          <ul>
-            <li>Alternativa por terminal (Node): <code>npx @liamcottle/rustplus.js fcm-register</code> y luego <code>fcm-listen</code>.</li>
-          </ul>
-        </details>
         <div class="frow">
           <div class="field" data-f="ip">
             <label>IP del servidor</label>
-            <div class="desc">La que llega en la notificación</div>
-            <input name="ip" placeholder="200.40.131.36" spellcheck="false" autocomplete="off">
+            <div class="desc">Detectada por la vinculación</div>
+            <input name="ip" placeholder="—" readonly tabindex="-1">
             <div class="err"></div>
           </div>
           <div class="field" data-f="port">
             <label>Puerto Rust+</label>
-            <div class="desc">El de la notificación, no el de jugar</div>
-            <input name="port" inputmode="numeric" placeholder="28082" autocomplete="off">
+            <div class="desc">Detectado por la vinculación</div>
+            <input name="port" placeholder="—" readonly tabindex="-1">
             <div class="err"></div>
           </div>
         </div>
         <div class="field" data-f="player_token">
           <label>Player token</label>
-          <div class="desc">Puede ser negativo; copialo con el signo</div>
-          <input name="player_token" inputmode="numeric" spellcheck="false" autocomplete="off">
+          <div class="desc">Detectado por la vinculación</div>
+          <input name="player_token" placeholder="—" readonly tabindex="-1">
           <div class="err"></div>
         </div>
       </section>
@@ -352,40 +318,25 @@
       <!-- 3 · Alarma -->
       <section class="step" data-step="alarm">
         <h3>La alarma</h3>
-        <p class="lead">El Entity ID identifica esa Smart Alarm puntual.</p>
+        <p class="lead">El Entity ID se completa al <b>parear la Smart Alarm</b> en el juego. No se carga a mano.</p>
         <div class="pairbox" data-pair>
           <div class="pair-head">
-            <b>Vinculación automática</b>
+            <b>Vinculación con Rust+</b>
             <span class="pair-status" data-pair-status>&nbsp;</span>
           </div>
-          <p class="desc">Con la vinculación activa, pareá la alarma y el Entity ID se completa solo.</p>
+          <p class="desc">Con la vinculación activa, pareá la alarma y el Entity ID aparece solo.</p>
           <button type="button" class="ghost" data-pair-btn>Vincular con Rust+</button>
           <ol data-pair-steps hidden>
             <li>En el juego, <b>mirá la Smart Alarm</b> de cerca.</li>
             <li>Tocá <b>Pair</b> en el menú del dispositivo.</li>
           </ol>
-          <details class="pair-manual">
-            <summary>o pegá los datos de la alarma</summary>
-            <p class="desc">Pegá el JSON del pairing de la alarma (el que trae <code>entityId</code>).</p>
-            <textarea data-paste-box rows="3" spellcheck="false" placeholder='{"entityId":"12345","entityType":"2"}'></textarea>
-            <div class="test-row">
-              <button type="button" class="ghost" data-paste-btn>Rellenar con esto</button>
-              <span class="res" data-paste-res></span>
-            </div>
-          </details>
         </div>
-        <details class="guide">
-          <summary>¿Preferís conseguirlo a mano?</summary>
-          <ol>
-            <li>Con el listener del paso anterior abierto, andá al juego y <b>mirá la Smart Alarm</b>.</li>
-            <li>Aparece la opción <b>Pair</b> sobre el dispositivo: activala.</li>
-            <li>Llega una notificación con <code>entityId</code>: ese número va acá.</li>
-          </ol>
-          <ul>
-            <li>Truco sin parear: pegale un golpe, abrí consola con <code>F1</code> y escribí <code>combatlog</code>; el ID aparece como objetivo.</li>
-            <li>Ojo: el Entity ID <b>cambia con cada wipe</b>.</li>
-          </ul>
-        </details>
+        <div class="field" data-f="entity_id">
+          <label>Entity ID de la alarma</label>
+          <div class="desc">Detectado por la vinculación · cambia con cada wipe</div>
+          <input name="entity_id" placeholder="—" readonly tabindex="-1">
+          <div class="err"></div>
+        </div>
         <div class="field" data-f="entity_id">
           <label>Entity ID de la alarma</label>
           <input name="entity_id" inputmode="numeric" spellcheck="false" autocomplete="off">
@@ -463,7 +414,6 @@
 
 {% block script %}
 <script>
-const USER_STEAM_ID = "{{ user.steam_id }}";
 // La extensión RustyAlarm Link (si está instalada) avisa "ready" por postMessage.
 let EXT_READY = false;
 const FIELDS = ["name","ip","port","player_token","entity_id","discord_webhook","check_interval","cooldown"];
@@ -624,15 +574,11 @@ function validateStep(key) {
   const errs = {};
   const v = name => fieldEl(name).value.trim();
   if (key === "name" && !v("name")) errs.name = "Poné un nombre";
-  if (key === "server") {
-    if (!v("ip")) errs.ip = "Requerido";
-    const p = v("port");
-    if (!/^\d+$/.test(p) || +p < 1 || +p > 65535) errs.port = "Número entre 1 y 65535";
-    if (!/^-?\d+$/.test(v("player_token"))) errs.player_token = "Número entero";
-  }
-  if (key === "alarm") {
-    if (!/^\d+$/.test(v("entity_id")) || +v("entity_id") <= 0) errs.entity_id = "Número mayor que 0";
-  }
+  // Servidor y alarma solo se llenan por vinculación (campos read-only).
+  if (key === "server" && (!v("ip") || !v("port") || !v("player_token")))
+    errs.ip = "Vinculá con Rust+ para completar estos datos";
+  if (key === "alarm" && !v("entity_id"))
+    errs.entity_id = "Vinculá la Smart Alarm con Rust+";
   if (key === "discord") {
     const w = v("discord_webhook");
     if (w && !/^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\//.test(w))
@@ -755,11 +701,7 @@ async function pairStart() {
   // extensión puede capturar. Sin la extensión RustyAlarm Link, mandamos al
   // pegado manual en vez de dejar el flujo colgado.
   if (!EXT_READY) {
-    pairBoxes().forEach(box => {
-      const d = box.querySelector(".pair-manual");
-      if (d) d.open = true;
-    });
-    toast("Instalá la extensión RustyAlarm Link para el modo automático, o pegá los datos abajo.", "err");
+    toast("Necesitás la extensión RustyAlarm Link para vincular. Instalala y recargá la página.", "err");
     return;
   }
   try {
@@ -848,51 +790,6 @@ dlg.addEventListener("close", () => {
 
 pairBoxes().forEach(box =>
   box.querySelector("[data-pair-btn]").addEventListener("click", pairStart));
-
-// ---- Pegado manual de datos de vinculación (funciona local y en prod) ----
-// Acepta el JSON del pairing de Rust+: server (ip/port/playerToken/playerId) o
-// alarma (entityId). Todo como string — los enteros grandes no pasan por Number.
-function pastePairing(box) {
-  const ta = box.querySelector("[data-paste-box]");
-  const res = box.querySelector("[data-paste-res]");
-  const bad = m => { res.className = "res bad"; res.textContent = m; };
-  let obj;
-  try { obj = JSON.parse(ta.value.trim()); }
-  catch { bad("No es un JSON válido"); return; }
-  if (Array.isArray(obj)) obj = obj[0] || {};
-  if (!obj || typeof obj !== "object") { bad("No es un JSON válido"); return; }
-
-  const pick = (...keys) => {
-    for (const k of keys) if (obj[k] != null && String(obj[k]).trim() !== "") return String(obj[k]).trim();
-    return null;
-  };
-  const ip = pick("ip", "host", "server_host");
-  const port = pick("port", "app_port", "appPort");
-  const token = pick("playerToken", "player_token");
-  const pid = pick("playerId", "player_id", "steamId", "steam_id");
-  const eid = pick("entityId", "entity_id");
-  const nm = pick("name", "server_name", "serverName");
-
-  // Un token de otra cuenta de Steam no va a autenticar para la del panel.
-  if (pid && USER_STEAM_ID && pid !== USER_STEAM_ID) {
-    bad("Ese playerId es de otra cuenta de Steam (" + pid + "). El token no va a servir para la tuya.");
-    return;
-  }
-
-  const filled = [];
-  if (ip) { fieldEl("ip").value = ip; clearFieldError("ip"); filled.push("IP"); }
-  if (port) { fieldEl("port").value = port; clearFieldError("port"); filled.push("puerto"); }
-  if (token) { fieldEl("player_token").value = token; clearFieldError("player_token"); filled.push("player token"); }
-  if (eid) { fieldEl("entity_id").value = eid; clearFieldError("entity_id"); filled.push("Entity ID"); }
-  if (nm && !fieldEl("name").value.trim()) fieldEl("name").value = nm.slice(0, 60);
-
-  if (!filled.length) { bad("No encontré datos usables (ip/port/playerToken o entityId)"); return; }
-  res.className = "res ok";
-  res.textContent = "Completado: " + filled.join(", ") + " ✓";
-}
-
-wizForm.querySelectorAll("[data-paste-btn]").forEach(btn =>
-  btn.addEventListener("click", () => pastePairing(btn.closest("[data-pair]"))));
 
 // ============ TARJETAS ============
 

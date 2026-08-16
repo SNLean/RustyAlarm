@@ -349,4 +349,27 @@ def login_url() -> str:
     return f"{COMPANION_URL}/login"
 
 
+def session_credentials(session, steam_id: str):
+    """Credenciales de conexion que salieron del pairing de ESTE usuario.
+    Devuelve ``(creds, None)`` si la sesion tiene server + alarma pareados y son
+    de su cuenta; si no, ``(None, mensaje)``. Es la unica fuente de ip/port/
+    player_token/entity_id: el alta de alarma no acepta esos datos del cliente."""
+    if session is None:
+        return None, "Vincula tu Rust+ con la extension antes de crear la alarma"
+    with session.lock:
+        server = dict(session.server) if session.server else None
+        entity = dict(session.entity) if session.entity else None
+    if not server:
+        return None, "Falta parear el servidor en Rust+"
+    if not entity:
+        return None, "Falta parear la Smart Alarm en Rust+"
+    pid = server.get("player_id") or entity.get("player_id")
+    if pid and pid != steam_id:
+        return None, "Los datos son de otra cuenta de Steam. Volve a vincular con la tuya."
+    return {
+        "ip": server["ip"], "port": server["port"],
+        "player_token": server["player_token"], "entity_id": entity["entity_id"],
+    }, None
+
+
 pairing_manager = PairingManager()

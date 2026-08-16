@@ -228,6 +228,11 @@ async def list_alarms(request: Request):
     }
 
 
+# Campos que el cliente SI puede mandar. ip/port/player_token/entity_id nunca
+# salen del cliente: vienen del pairing (alta) o de lo ya guardado (edicion).
+_CLIENT_FIELDS = ("name", "discord_webhook", "check_interval", "cooldown")
+
+
 @app.post("/api/alarms")
 async def create_alarm(request: Request):
     user = current_user(request)
@@ -235,7 +240,15 @@ async def create_alarm(request: Request):
         return need_login()
     if not same_origin(request):
         return JSONResponse({"error": "Origen invalido"}, status_code=403)
-    data = await read_json(request)
+    # Los datos de conexion salen SOLO del pairing de este usuario, nunca del
+    # cliente: no hay forma de cargar una alarma con credenciales a mano.
+    session = pairing.pairing_manager.get(user["steam_id"])
+    creds, err = pairing.session_credentials(session, user["steam_id"])
+    if creds is None:
+        return JSONResponse({"error": err}, status_code=400)
+    client = await read_json(request)
+    data = {k: client.get(k) for k in _CLIENT_FIELDS}
+    data.update(creds)
     try:
         row = db.create_alarm(user["steam_id"], data)
     except db.ValidationError as exc:
@@ -253,7 +266,18 @@ async def update_alarm(alarm_id: int, request: Request):
         return need_login()
     if not same_origin(request):
         return JSONResponse({"error": "Origen invalido"}, status_code=403)
-    data = await read_json(request)
+    existing = db.get_alarm(alarm_id, user["steam_id"])
+    if existing is None:
+        return JSONResponse({"error": "No existe"}, status_code=404)
+    # La edicion toca nombre/webhook/ajustes; las credenciales quedan como
+    # estaban (para cambiarlas hay que volver a vincular y crear otra alarma).
+    client = await read_json(request)
+    data = {k: client.get(k) for k in _CLIENT_FIELDS}
+    data.update({
+        "ip": existing["ip"], "port": existing["port"],
+        "player_token": str(existing["player_token"]),
+        "entity_id": str(existing["entity_id"]),
+    })
     try:
         row = db.update_alarm(alarm_id, user["steam_id"], data)
     except db.ValidationError as exc:
